@@ -1,9 +1,6 @@
 use chrono::naive::NaiveDate;
 use failure::{format_err, Error as FailureError};
-use serde::{
-    de::{Error as DeserializeError, Unexpected, Visitor},
-    Deserialize, Deserializer, Serialize, Serializer,
-};
+use serde::{Deserialize, Serialize};
 use std::{
     convert::TryFrom,
     fmt::{Display, Formatter, Result as FormatResult},
@@ -108,15 +105,15 @@ pub struct Sensor {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Category {
-    pub description: String,
     pub token: LongToken,
+    pub description: String,
     pub name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Attribute {
-    pub description: String,
     pub token: LongToken,
+    pub description: String,
     pub name: String,
 }
 
@@ -141,10 +138,10 @@ pub struct EgoPose {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Instance {
     pub token: LongToken,
-    pub last_annotation_token: LongToken,
-    pub first_annotation_token: LongToken,
-    pub category_token: LongToken,
     pub nbr_annotations: usize,
+    pub category_token: LongToken,
+    pub first_annotation_token: LongToken,
+    pub last_annotation_token: LongToken,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -176,8 +173,8 @@ pub struct SampleAnnotation {
     pub sample_token: LongToken,
     pub instance_token: LongToken,
     pub attribute_tokens: Vec<LongToken>,
-    #[serde(with = "opt_long_token_serde")]
-    pub visibility_token: Option<LongToken>,
+    #[serde(with = "opt_string_serde")]
+    pub visibility_token: Option<String>,
     #[serde(with = "opt_long_token_serde")]
     pub prev: Option<LongToken>,
     #[serde(with = "opt_long_token_serde")]
@@ -187,12 +184,12 @@ pub struct SampleAnnotation {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Scene {
     pub token: LongToken,
-    pub log_token: LongToken,
-    pub first_sample_token: LongToken,
     pub name: String,
     pub description: String,
-    pub last_sample_token: LongToken,
     pub nbr_samples: usize,
+    pub log_token: LongToken,
+    pub first_sample_token: LongToken,
+    pub last_sample_token: LongToken,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -513,6 +510,34 @@ mod opt_long_token_serde {
                 })?;
                 Some(token)
             }
+        };
+
+        Ok(value)
+    }
+}
+
+mod opt_string_serde {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S>(value: &Option<String>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match value {
+            Some(string) => string.serialize(serializer),
+            None => serializer.serialize_str(""),
+        }
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let string = String::deserialize(deserializer)?;
+
+        let value = match string.len() {
+            0 => None,
+            _ => Some(string),
         };
 
         Ok(value)
