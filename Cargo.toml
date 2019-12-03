@@ -11,3 +11,4 @@ serde = { version = "~1", features = ["derive"] }
 failure = "~0"
 hex = "~0"
 chrono = { version = "~0", features = ["serde"] }
+itertools = "~0"

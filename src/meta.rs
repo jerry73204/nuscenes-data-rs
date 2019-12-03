@@ -40,7 +40,7 @@ impl TryFrom<&str> for LongToken {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ShortToken([u8; SHORT_TOKEN_LENGTH]);
 
 impl Display for ShortToken {
@@ -70,47 +70,6 @@ impl TryFrom<&str> for ShortToken {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Sample {
-    pub token: LongToken,
-    #[serde(with = "opt_long_token_serde")]
-    pub next: Option<LongToken>,
-    #[serde(with = "opt_long_token_serde")]
-    pub prev: Option<LongToken>,
-    pub scene_token: LongToken,
-    pub timestamp: f64,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SampleData {
-    pub fileformat: FileFormat,
-    pub is_key_frame: bool,
-    #[serde(with = "opt_long_token_serde")]
-    pub next: Option<LongToken>,
-    #[serde(with = "opt_long_token_serde")]
-    pub prev: Option<LongToken>,
-    pub token: LongToken,
-    pub sample_token: LongToken,
-    pub ego_pose_token: LongToken,
-    pub calibrated_sensor_token: LongToken,
-    pub timestamp: f64,
-    pub filename: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Sensor {
-    pub token: LongToken,
-    pub modality: Modality,
-    pub channel: Channel,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Category {
-    pub token: LongToken,
-    pub description: String,
-    pub name: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Attribute {
     pub token: LongToken,
     pub description: String,
@@ -125,6 +84,13 @@ pub struct CalibratedSensor {
     #[serde(with = "camera_intrinsic_serde")]
     pub camera_intrinsic: CameraIntrinsic,
     pub translation: [f64; 3],
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Category {
+    pub token: LongToken,
+    pub description: String,
+    pub name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -163,6 +129,28 @@ pub struct Map {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Scene {
+    pub token: LongToken,
+    pub name: String,
+    pub description: String,
+    pub nbr_samples: usize,
+    pub log_token: LongToken,
+    pub first_sample_token: LongToken,
+    pub last_sample_token: LongToken,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Sample {
+    pub token: LongToken,
+    #[serde(with = "opt_long_token_serde")]
+    pub next: Option<LongToken>,
+    #[serde(with = "opt_long_token_serde")]
+    pub prev: Option<LongToken>,
+    pub scene_token: LongToken,
+    pub timestamp: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SampleAnnotation {
     pub token: LongToken,
     pub num_lidar_pts: isize,
@@ -182,14 +170,26 @@ pub struct SampleAnnotation {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Scene {
+pub struct SampleData {
     pub token: LongToken,
-    pub name: String,
-    pub description: String,
-    pub nbr_samples: usize,
-    pub log_token: LongToken,
-    pub first_sample_token: LongToken,
-    pub last_sample_token: LongToken,
+    pub fileformat: FileFormat,
+    pub is_key_frame: bool,
+    pub filename: String,
+    pub timestamp: f64,
+    pub sample_token: LongToken,
+    pub ego_pose_token: LongToken,
+    pub calibrated_sensor_token: LongToken,
+    #[serde(with = "opt_long_token_serde")]
+    pub prev: Option<LongToken>,
+    #[serde(with = "opt_long_token_serde")]
+    pub next: Option<LongToken>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Sensor {
+    pub token: LongToken,
+    pub modality: Modality,
+    pub channel: Channel,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
