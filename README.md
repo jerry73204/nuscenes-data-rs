@@ -8,9 +8,14 @@ The data schema follows the specification on [nuScenes website](https://www.nusc
 
 Install Rust toolchain before your build. We suggest [rustup](https://rustup.rs/) to manage your toolchain.
 
+To build the library,
+
 ```sh
 cargo build
 ```
+
+The project is under development and thus is not guaranteed to compile. Feel free to make contributions if you want to.
+
 
 ## License
 
