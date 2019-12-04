@@ -1,55 +1,59 @@
-use crate::meta::{
-    Attribute, CalibratedSensor, CameraIntrinsic, Category, EgoPose, FileFormat, Instance, Log,
-    LongToken, Map, Sample, SampleAnnotation, SampleData, Scene, Sensor, ShortToken, Visibility,
+use crate::{
+    error::NuSceneDataError,
+    meta::{Instance, LongToken, Sample, SampleAnnotation, Scene},
 };
-use failure::{bail, ensure, Fallible};
-use std::path::PathBuf;
+use chrono::NaiveDateTime;
+use failure::{ensure, Fallible};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
-pub struct CalibratedSensorInternal<'a> {
+pub struct SampleInternal {
     pub token: LongToken,
-    pub sensor_ref: &'a Sensor,
-    pub rotation: [f64; 4],
-    pub camera_intrinsic: CameraIntrinsic,
-    pub translation: [f64; 3],
+    pub next: Option<LongToken>,
+    pub prev: Option<LongToken>,
+    pub scene_token: LongToken,
+    pub timestamp: NaiveDateTime,
+    pub annotation_tokens: Vec<LongToken>,
+    pub sample_data_tokens: Vec<LongToken>,
 }
 
-impl<'a> CalibratedSensorInternal<'a> {
-    pub fn from(calibrated_sensor: CalibratedSensor, sensor_ref: &'a Sensor) -> Fallible<Self> {
-        let CalibratedSensor {
+impl SampleInternal {
+    pub fn from(
+        sample: Sample,
+        annotation_tokens: Vec<LongToken>,
+        sample_data_tokens: Vec<LongToken>,
+    ) -> Self {
+        let Sample {
             token,
-            sensor_token,
-            rotation,
-            camera_intrinsic,
-            translation,
-        } = calibrated_sensor;
+            next,
+            prev,
+            scene_token,
+            timestamp,
+        } = sample;
 
-        ensure!(sensor_token == sensor_ref.token);
-
-        let ret = Self {
+        Self {
             token,
-            sensor_ref,
-            rotation,
-            camera_intrinsic,
-            translation,
-        };
-
-        Ok(ret)
+            next,
+            prev,
+            scene_token,
+            timestamp,
+            annotation_tokens,
+            sample_data_tokens,
+        }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct InstanceInternal<'a> {
+pub struct InstanceInternal {
     pub token: LongToken,
-    pub category_ref: &'a Category,
-    pub annotation_refs: Vec<&'a SampleAnnotationInternal<'a>>,
+    pub category_token: LongToken,
+    pub annotation_tokens: Vec<LongToken>,
 }
 
-impl<'a> InstanceInternal<'a> {
+impl InstanceInternal {
     pub fn from(
         instance: Instance,
-        category_ref: &'a Category,
-        annotation_refs: Vec<&'a SampleAnnotationInternal<'a>>,
+        sample_annotation_map: &HashMap<LongToken, SampleAnnotation>,
     ) -> Fallible<Self> {
         let Instance {
             token,
@@ -59,234 +63,71 @@ impl<'a> InstanceInternal<'a> {
             last_annotation_token,
         } = instance;
 
-        ensure!(category_token == category_ref.token);
-        ensure!(annotation_refs.len() == nbr_annotations && !annotation_refs.is_empty());
-        ensure!(annotation_refs.first().unwrap().token == first_annotation_token);
-        ensure!(annotation_refs.last().unwrap().token == last_annotation_token);
+        let mut annotation_token_opt = Some(&first_annotation_token);
+        let mut annotation_tokens = vec![];
 
-        let ret = Self {
-            token,
-            category_ref,
-            annotation_refs,
-        };
-
-        Ok(ret)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MapInternal<'a> {
-    pub token: ShortToken,
-    pub log_refs: Vec<&'a Log>,
-    pub filename: PathBuf,
-    pub category: String,
-}
-
-impl<'a> MapInternal<'a> {
-    pub fn from(map: Map, log_refs: Vec<&'a Log>) -> Fallible<Self> {
-        let Map {
-            token,
-            log_tokens,
-            filename,
-            category,
-        } = map;
-
-        ensure!(log_tokens.len() == log_refs.len());
-        for (log_token, log_ref) in log_tokens.iter().zip(log_refs.iter()) {
-            ensure!(log_token == &log_ref.token);
+        while let Some(annotation_token) = annotation_token_opt {
+            let annotation = &sample_annotation_map
+                .get(annotation_token)
+                .ok_or(NuSceneDataError::internal_bug())?;
+            ensure!(annotation_token == &annotation.token);
+            annotation_tokens.push(annotation_token.clone());
+            annotation_token_opt = annotation.next.as_ref();
         }
 
+        ensure!(annotation_tokens.len() == nbr_annotations);
+        ensure!(annotation_tokens.last().unwrap() == &last_annotation_token);
+
         let ret = Self {
             token,
-            log_refs,
-            filename,
-            category,
+            category_token,
+            annotation_tokens,
         };
-
         Ok(ret)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct SampleAnnotationInternal<'a> {
-    pub token: LongToken,
-    pub num_lidar_pts: isize,
-    pub num_radar_pts: isize,
-    pub size: [f64; 3],
-    pub rotation: [f64; 4],
-    pub translation: [f64; 3],
-    pub attribute_refs: Vec<&'a Attribute>,
-    pub visibility_ref_opt: Option<&'a Visibility>,
-}
-
-impl<'a> SampleAnnotationInternal<'a> {
-    pub fn from(
-        annotation: SampleAnnotation,
-        attribute_refs: Vec<&'a Attribute>,
-        visibility_ref_opt: Option<&'a Visibility>,
-    ) -> Fallible<Self> {
-        let SampleAnnotation {
-            token,
-            num_lidar_pts,
-            num_radar_pts,
-            size,
-            rotation,
-            translation,
-            sample_token: _,
-            instance_token: _,
-            attribute_tokens,
-            visibility_token,
-            prev: _,
-            next: _,
-        } = annotation;
-
-        ensure!(attribute_tokens.len() == attribute_refs.len());
-
-        for (token, attribute_ref) in attribute_tokens.iter().zip(attribute_refs.iter()) {
-            ensure!(token == &attribute_ref.token);
-        }
-
-        match (visibility_token, visibility_ref_opt) {
-            (None, None) => (),
-            (Some(token), Some(visibility_ref)) => {
-                ensure!(token == visibility_ref.token);
-            }
-            _ => bail!("please report bug"),
-        }
-
-        let ret = Self {
-            token,
-            num_lidar_pts,
-            num_radar_pts,
-            size,
-            rotation,
-            translation,
-            attribute_refs,
-            visibility_ref_opt,
-        };
-
-        Ok(ret)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SampleInternal<'a> {
-    pub token: LongToken,
-    pub timestamp: f64,
-    pub sample_data_refs: Vec<&'a SampleDataInternal<'a>>,
-    pub annotation_refs: Vec<&'a SampleAnnotationInternal<'a>>,
-}
-
-impl<'a> SampleInternal<'a> {
-    pub fn from(
-        sample: Sample,
-        sample_data_refs: Vec<&'a SampleDataInternal<'a>>,
-        annotation_refs: Vec<&'a SampleAnnotationInternal<'a>>,
-    ) -> Fallible<Self> {
-        let Sample {
-            token,
-            next: _,
-            prev: _,
-            scene_token: _,
-            timestamp,
-        } = sample;
-
-        let ret = Self {
-            token,
-            timestamp,
-            sample_data_refs,
-            annotation_refs,
-        };
-
-        Ok(ret)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SampleDataInternal<'a> {
-    pub token: LongToken,
-    pub fileformat: FileFormat,
-    pub is_key_frame: bool,
-    pub timestamp: f64,
-    pub filename: String,
-    pub ego_pose_ref: &'a EgoPose,
-    pub calibrated_sensor_ref: &'a CalibratedSensorInternal<'a>,
-}
-
-impl<'a> SampleDataInternal<'a> {
-    pub fn from(
-        sample_data: SampleData,
-        ego_pose_ref: &'a EgoPose,
-        calibrated_sensor_ref: &'a CalibratedSensorInternal<'a>,
-    ) -> Fallible<Self> {
-        let SampleData {
-            token,
-            fileformat,
-            is_key_frame,
-            filename,
-            timestamp,
-            sample_token: _,
-            ego_pose_token,
-            calibrated_sensor_token,
-            prev: _,
-            next: _,
-        } = sample_data;
-
-        ensure!(ego_pose_token == ego_pose_ref.token);
-        ensure!(calibrated_sensor_token == calibrated_sensor_ref.token);
-
-        let ret = Self {
-            token,
-            fileformat,
-            is_key_frame,
-            ego_pose_ref,
-            calibrated_sensor_ref,
-            timestamp,
-            filename,
-        };
-
-        Ok(ret)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SceneInternal<'a> {
+pub struct SceneInternal {
     pub token: LongToken,
     pub name: String,
     pub description: String,
-    pub log_ref: &'a Log,
-    pub sample_refs: Vec<&'a SampleInternal<'a>>,
+    pub log_token: LongToken,
+    pub sample_tokens: Vec<LongToken>,
 }
 
-impl<'a> SceneInternal<'a> {
-    pub fn from(
-        scene: Scene,
-        log_ref: &'a Log,
-        sample_refs: Vec<&'a SampleInternal<'a>>,
-    ) -> Fallible<Self> {
+impl SceneInternal {
+    pub fn from(scene: Scene, sample_map: &HashMap<LongToken, Sample>) -> Fallible<Self> {
         let Scene {
             token,
             name,
             description,
-            nbr_samples,
             log_token,
+            nbr_samples,
             first_sample_token,
             last_sample_token,
         } = scene;
 
-        ensure!(log_token == log_ref.token);
-        ensure!(nbr_samples == sample_refs.len() && !sample_refs.is_empty());
-        ensure!(sample_refs.first().unwrap().token == first_sample_token);
-        ensure!(sample_refs.last().unwrap().token == last_sample_token);
+        let mut sample_tokens = vec![];
+        let mut sample_token_opt = Some(&first_sample_token);
+
+        while let Some(sample_token) = sample_token_opt {
+            let sample = &sample_map[sample_token];
+            ensure!(&sample.token == sample_token);
+            sample_tokens.push(sample_token.clone());
+            sample_token_opt = sample.next.as_ref();
+        }
+
+        ensure!(sample_tokens.len() == nbr_samples);
+        ensure!(sample_tokens.last().unwrap() == &last_sample_token);
 
         let ret = Self {
             token,
             name,
             description,
-            log_ref,
-            sample_refs,
+            log_token,
+            sample_tokens,
         };
-
         Ok(ret)
     }
 }

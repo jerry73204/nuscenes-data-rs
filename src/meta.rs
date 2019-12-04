@@ -1,4 +1,4 @@
-use chrono::naive::NaiveDate;
+use chrono::naive::{NaiveDate, NaiveDateTime};
 use failure::{format_err, Error as FailureError};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -96,7 +96,8 @@ pub struct Category {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EgoPose {
     pub token: LongToken,
-    pub timestamp: f64,
+    #[serde(with = "timestamp_serde")]
+    pub timestamp: NaiveDateTime,
     pub rotation: [f64; 4],
     pub translation: [f64; 3],
 }
@@ -133,8 +134,8 @@ pub struct Scene {
     pub token: LongToken,
     pub name: String,
     pub description: String,
-    pub nbr_samples: usize,
     pub log_token: LongToken,
+    pub nbr_samples: usize,
     pub first_sample_token: LongToken,
     pub last_sample_token: LongToken,
 }
@@ -147,7 +148,8 @@ pub struct Sample {
     #[serde(with = "opt_long_token_serde")]
     pub prev: Option<LongToken>,
     pub scene_token: LongToken,
-    pub timestamp: f64,
+    #[serde(with = "timestamp_serde")]
+    pub timestamp: NaiveDateTime,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -175,7 +177,8 @@ pub struct SampleData {
     pub fileformat: FileFormat,
     pub is_key_frame: bool,
     pub filename: String,
-    pub timestamp: f64,
+    #[serde(with = "timestamp_serde")]
+    pub timestamp: NaiveDateTime,
     pub sample_token: LongToken,
     pub ego_pose_token: LongToken,
     pub calibrated_sensor_token: LongToken,
@@ -541,5 +544,30 @@ mod opt_string_serde {
         };
 
         Ok(value)
+    }
+}
+
+mod timestamp_serde {
+    use chrono::NaiveDateTime;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(value: &NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let timestamp = value.timestamp_nanos() as f64 / 1_000_000_000.0;
+        serializer.serialize_f64(timestamp)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let timestamp_us = f64::deserialize(deserializer)?; // in us
+        let timestamp_ns = (timestamp_us * 1000.0) as u64; // in ns
+        let secs = timestamp_ns / 1_000_000_000;
+        let nsecs = timestamp_ns % 1_000_000_000;
+        let datetime = NaiveDateTime::from_timestamp(secs as i64, nsecs as u32);
+        Ok(datetime)
     }
 }

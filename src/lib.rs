@@ -1,47 +1,56 @@
 #![feature(backtrace)]
 
+pub mod error;
 mod internal;
 pub mod meta;
 
 use crate::{
-    internal::{
-        CalibratedSensorInternal, InstanceInternal, MapInternal, SampleAnnotationInternal,
-        SampleDataInternal, SampleInternal, SceneInternal,
-    },
+    error::NuSceneDataError,
+    internal::{InstanceInternal, SampleInternal, SceneInternal},
     meta::{
         Attribute, CalibratedSensor, Category, EgoPose, Instance, Log, LongToken, Map, Sample,
         SampleAnnotation, SampleData, Scene, Sensor, ShortToken, Visibility,
     },
 };
 
-use failure::{bail, ensure, format_err, Fallible};
+use failure::{bail, ensure, Fallible};
 use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs::File,
     io::{prelude::*, BufReader},
     path::{Path, PathBuf},
 };
 
-pub struct NuSceneDataset<'a> {
+pub struct NuSceneDataset {
     name: String,
     dataset_dir: PathBuf,
     attribute_map: HashMap<LongToken, Attribute>,
-    calibrated_sensor_map: HashMap<LongToken, CalibratedSensorInternal<'a>>,
+    calibrated_sensor_map: HashMap<LongToken, CalibratedSensor>,
     category_map: HashMap<LongToken, Category>,
     ego_pose_map: HashMap<LongToken, EgoPose>,
-    instance_map: HashMap<LongToken, InstanceInternal<'a>>,
+    instance_map: HashMap<LongToken, InstanceInternal>,
     log_map: HashMap<LongToken, Log>,
-    map_map: HashMap<ShortToken, MapInternal<'a>>,
-    scene_map: HashMap<LongToken, SceneInternal<'a>>,
-    sample_map: HashMap<LongToken, SampleInternal<'a>>,
-    sample_annotation_map: HashMap<LongToken, SampleAnnotationInternal<'a>>,
-    sample_data_map: HashMap<LongToken, SampleDataInternal<'a>>,
+    map_map: HashMap<ShortToken, Map>,
+    scene_map: HashMap<LongToken, SceneInternal>,
+    sample_map: HashMap<LongToken, SampleInternal>,
+    sample_annotation_map: HashMap<LongToken, SampleAnnotation>,
+    sample_data_map: HashMap<LongToken, SampleData>,
     sensor_map: HashMap<LongToken, Sensor>,
+    sorted_scene_tokens: Vec<LongToken>,
+    sorted_sample_tokens: Vec<LongToken>,
 }
 
-impl<'a> NuSceneDataset<'a> {
+impl NuSceneDataset {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+    
+    pub fn dir(&self) -> &Path {
+        &self.dataset_dir
+    }
+    
     pub fn load<S, P>(name: S, dir: P) -> Fallible<Self>
     where
         S: AsRef<str>,
@@ -410,29 +419,8 @@ impl<'a> NuSceneDataset<'a> {
             }
         }
 
-        // keep track of relations from instances to sample annotations
-        let instance_to_annotation_groups = instance_map
-            .iter()
-            .map(|(instance_token, instance)| {
-                let mut annotation_token_opt = Some(&instance.first_annotation_token);
-                let mut annotation_tokens = vec![];
-
-                while let Some(annotation_token) = annotation_token_opt {
-                    let annotation = &sample_annotation_map[annotation_token];
-                    ensure!(annotation_token == &annotation.token);
-                    annotation_tokens.push(annotation_token.clone());
-                    annotation_token_opt = annotation.next.as_ref();
-                }
-
-                ensure!(annotation_tokens.len() == instance.nbr_annotations);
-                ensure!(annotation_tokens.last().unwrap() == &instance.last_annotation_token);
-
-                Ok((instance_token.clone(), annotation_tokens))
-            })
-            .collect::<Fallible<HashMap<_, _>>>()?;
-
         // keep track of relations from samples to sample annotations
-        let sample_to_annotation_groups = sample_annotation_map
+        let mut sample_to_annotation_groups = sample_annotation_map
             .iter()
             .map(|(sample_annotation_token, sample_annotation)| {
                 (
@@ -443,111 +431,18 @@ impl<'a> NuSceneDataset<'a> {
             .into_group_map();
 
         // keep track of relations from samples to sample data
-        let sample_to_sample_data_groups = sample_data_map
+        let mut sample_to_sample_data_groups = sample_data_map
             .iter()
             .map(|(sample_data_token, sample_data)| {
                 (sample_data.sample_token.clone(), sample_data_token.clone())
             })
             .into_group_map();
 
-        // keep track of relations from scene to samples
-        let scene_to_sample_groups = scene_map
-            .iter()
-            .map(|(scene_token, scene)| {
-                let mut sample_tokens = vec![];
-                let mut sample_token_opt = Some(&scene.first_sample_token);
-                while let Some(sample_token) = sample_token_opt {
-                    let sample = &sample_map[sample_token];
-                    ensure!(&sample.token == sample_token);
-                    sample_tokens.push(sample_token.clone());
-                    sample_token_opt = sample.next.as_ref();
-                }
-
-                ensure!(sample_tokens.len() == scene.nbr_samples);
-                ensure!(sample_tokens.last().unwrap() == &scene.last_sample_token);
-                Ok((scene_token.clone(), sample_tokens))
-            })
-            .collect::<Fallible<HashMap<_, _>>>()?;
-
-        let calibrated_sensor_internal_map = calibrated_sensor_map
-            .into_iter()
-            .map(|(token, calibrated_sensor)| {
-                let sensor_ref = &sensor_map[&calibrated_sensor.sensor_token];
-                let internal = CalibratedSensorInternal::from(calibrated_sensor, sensor_ref)?;
-                Ok((token, internal))
-            })
-            .collect::<Fallible<HashMap<_, _>>>()?;
-
-        let map_internal_map = map_map
-            .into_iter()
-            .map(|(token, map)| {
-                let log_refs = map
-                    .log_tokens
-                    .iter()
-                    .map(|log_token| &log_map[log_token])
-                    .collect();
-                let internal = MapInternal::from(map, log_refs)?;
-                Ok((token, internal))
-            })
-            .collect::<Fallible<HashMap<_, _>>>()?;
-
-        let sample_data_internal_map = sample_data_map
-            .into_iter()
-            .map(|(sample_data_token, sample_data)| {
-                let ego_pose_ref = &ego_pose_map[&sample_data.ego_pose_token];
-                let calibrated_sensor_ref =
-                    &calibrated_sensor_internal_map[&sample_data.calibrated_sensor_token];
-                let ret =
-                    SampleDataInternal::from(sample_data, ego_pose_ref, calibrated_sensor_ref)?;
-                Ok((sample_data_token, ret))
-            })
-            .collect::<Fallible<HashMap<_, _>>>()?;
-
-        let sample_annotation_internal_map = sample_annotation_map
-            .into_iter()
-            .map(|(token, annotation)| {
-                let attribute_refs = annotation
-                    .attribute_tokens
-                    .iter()
-                    .map(|attribute_token| &attribute_map[attribute_token])
-                    .collect();
-                let visibility_ref_opt = annotation
-                    .visibility_token
-                    .as_ref()
-                    .map(|tk| &visibility_map[tk]);
-                let internal =
-                    SampleAnnotationInternal::from(annotation, attribute_refs, visibility_ref_opt)?;
-                Ok((token, internal))
-            })
-            .collect::<Fallible<HashMap<_, _>>>()?;
-
-        let sample_internal_map = sample_map
-            .into_iter()
-            .map(|(sample_token, sample)| {
-                let sample_data_refs = sample_to_sample_data_groups[&sample_token]
-                    .iter()
-                    .map(|sample_data_token| &sample_data_internal_map[sample_data_token])
-                    .collect();
-                let annotation_refs = sample_to_annotation_groups[&sample_token]
-                    .iter()
-                    .map(|annotation_token| &sample_annotation_internal_map[annotation_token])
-                    .collect();
-
-                let internal = SampleInternal::from(sample, sample_data_refs, annotation_refs)?;
-                Ok((sample_token, internal))
-            })
-            .collect::<Fallible<HashMap<_, _>>>()?;
-
+        // convert some types for ease of usage
         let instance_internal_map = instance_map
             .into_iter()
             .map(|(instance_token, instance)| {
-                let category_ref = &category_map[&instance.category_token];
-                let annotation_refs = instance_to_annotation_groups[&instance_token]
-                    .iter()
-                    .map(|annotation_token| &sample_annotation_internal_map[annotation_token])
-                    .collect();
-
-                let ret = InstanceInternal::from(instance, category_ref, annotation_refs)?;
+                let ret = InstanceInternal::from(instance, &sample_annotation_map)?;
                 Ok((instance_token, ret))
             })
             .collect::<Fallible<HashMap<_, _>>>()?;
@@ -555,34 +450,134 @@ impl<'a> NuSceneDataset<'a> {
         let scene_internal_map = scene_map
             .into_iter()
             .map(|(scene_token, scene)| {
-                let log_ref = &log_map[&scene.log_token];
-                let sample_refs = scene_to_sample_groups[&scene_token]
-                    .iter()
-                    .map(|sample_token| &sample_internal_map[&sample_token])
-                    .collect();
-                let internal = SceneInternal::from(scene, log_ref, sample_refs)?;
+                let internal = SceneInternal::from(scene, &sample_map)?;
                 Ok((scene_token, internal))
             })
             .collect::<Fallible<HashMap<_, _>>>()?;
 
+        let sample_internal_map = sample_map
+            .into_iter()
+            .map(|(sample_token, sample)| {
+                let sample_data_tokens = sample_to_sample_data_groups
+                    .remove(&sample_token)
+                    .ok_or(NuSceneDataError::internal_bug())?;
+                let annotation_tokens = sample_to_annotation_groups
+                    .remove(&sample_token)
+                    .ok_or(NuSceneDataError::internal_bug())?;
+                let internal = SampleInternal::from(sample, annotation_tokens, sample_data_tokens);
+                Ok((sample_token, internal))
+            })
+            .collect::<Fallible<HashMap<_, _>>>()?;
+
+        // sort scenes by timestamp
+        let sorted_scene_tokens = {
+            let mut sorted_pairs = scene_internal_map
+                .iter()
+                .map(|(scene_token, scene)| {
+                    let timestamp = scene
+                        .sample_tokens
+                        .iter()
+                        .map(|sample_token| {
+                            let sample = sample_internal_map
+                                .get(&sample_token)
+                                .ok_or(NuSceneDataError::internal_bug())?;
+                            Ok(sample.timestamp)
+                        })
+                        .collect::<Fallible<Vec<_>>>()?
+                        .into_iter()
+                        .min()
+                        .ok_or(NuSceneDataError::internal_bug())?;
+
+                    Ok((scene_token, timestamp))
+                })
+                .collect::<Fallible<Vec<_>>>()?;
+            sorted_pairs.sort_by_cached_key(|(_, timestamp)| timestamp.clone());
+
+            sorted_pairs
+                .into_iter()
+                .map(|(token, _)| token.clone())
+                .collect::<Vec<_>>()
+        };
+
+        // sort samples by timestamp
+        let sorted_sample_tokens = {
+            let mut sorted_pairs = sample_internal_map
+                .iter()
+                .map(|(sample_token, sample)| (sample_token, sample.timestamp))
+                .collect::<Vec<_>>();
+            sorted_pairs.sort_by_cached_key(|(_, timestamp)| timestamp.clone());
+
+            sorted_pairs
+                .into_iter()
+                .map(|(token, _)| token.clone())
+                .collect::<Vec<_>>()
+        };
+
+        // construct result
         let ret = Self {
             name: name.as_ref().to_owned(),
             dataset_dir: dataset_dir.to_owned(),
             attribute_map,
-            calibrated_sensor_map: calibrated_sensor_internal_map,
+            calibrated_sensor_map,
             category_map,
             ego_pose_map,
             instance_map: instance_internal_map,
             log_map,
-            map_map: map_internal_map,
+            map_map,
             scene_map: scene_internal_map,
             sample_map: sample_internal_map,
-            sample_annotation_map: sample_annotation_internal_map,
-            sample_data_map: sample_data_internal_map,
+            sample_annotation_map,
+            sample_data_map,
             sensor_map,
+            sorted_scene_tokens,
+            sorted_sample_tokens,
         };
 
         Ok(ret)
+    }
+
+    pub fn scene_iter<'a>(&'a self) -> SceneIter<'a> {
+        SceneIter {
+            dataset: self,
+            sorted_scene_tokens_iter: self.sorted_scene_tokens.iter(),
+        }
+    }
+
+    pub fn sample_iter<'a>(&'a self) -> SampleIter<'a> {
+        SampleIter {
+            dataset: self,
+            sorted_sample_tokens_iter: self.sorted_sample_tokens.iter(),
+        }
+    }
+}
+
+pub struct SceneIter<'a> {
+    dataset: &'a NuSceneDataset,
+    sorted_scene_tokens_iter: std::slice::Iter<'a, LongToken>,
+}
+
+impl<'a> Iterator for SceneIter<'a> {
+    type Item = &'a SceneInternal;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.sorted_scene_tokens_iter
+            .next()
+            .map(|token| &self.dataset.scene_map[&token])
+    }
+}
+
+pub struct SampleIter<'a> {
+    dataset: &'a NuSceneDataset,
+    sorted_sample_tokens_iter: std::slice::Iter<'a, LongToken>,
+}
+
+impl<'a> Iterator for SampleIter<'a> {
+    type Item = &'a SampleInternal;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.sorted_sample_tokens_iter
+            .next()
+            .map(|token| &self.dataset.sample_map[&token])
     }
 }
 
