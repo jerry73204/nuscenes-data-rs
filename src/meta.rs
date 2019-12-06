@@ -130,17 +130,6 @@ pub struct Map {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Scene {
-    pub token: LongToken,
-    pub name: String,
-    pub description: String,
-    pub log_token: LongToken,
-    pub nbr_samples: usize,
-    pub first_sample_token: LongToken,
-    pub last_sample_token: LongToken,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Sample {
     pub token: LongToken,
     #[serde(with = "opt_long_token_serde")]
@@ -186,6 +175,17 @@ pub struct SampleData {
     pub prev: Option<LongToken>,
     #[serde(with = "opt_long_token_serde")]
     pub next: Option<LongToken>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Scene {
+    pub token: LongToken,
+    pub name: String,
+    pub description: String,
+    pub log_token: LongToken,
+    pub nbr_samples: usize,
+    pub first_sample_token: LongToken,
+    pub last_sample_token: LongToken,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

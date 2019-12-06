@@ -11,8 +11,8 @@ pub struct SampleInternal {
     pub token: LongToken,
     pub next: Option<LongToken>,
     pub prev: Option<LongToken>,
-    pub scene_token: LongToken,
     pub timestamp: NaiveDateTime,
+    pub scene_token: LongToken,
     pub annotation_tokens: Vec<LongToken>,
     pub sample_data_tokens: Vec<LongToken>,
 }

@@ -2,11 +2,13 @@
 
 pub mod error;
 mod internal;
+pub mod iter;
 pub mod meta;
 
 use crate::{
     error::NuSceneDataError,
     internal::{InstanceInternal, SampleInternal, SceneInternal},
+    iter::Iter,
     meta::{
         Attribute, CalibratedSensor, Category, EgoPose, Instance, Log, LongToken, Map, Sample,
         SampleAnnotation, SampleData, Scene, Sensor, ShortToken, Visibility,
@@ -19,7 +21,8 @@ use serde::de::DeserializeOwned;
 use std::{
     collections::HashMap,
     fs::File,
-    io::{prelude::*, BufReader},
+    io::BufReader,
+    marker::PhantomData,
     path::{Path, PathBuf},
 };
 
@@ -38,6 +41,7 @@ pub struct NuSceneDataset {
     sample_annotation_map: HashMap<LongToken, SampleAnnotation>,
     sample_data_map: HashMap<LongToken, SampleData>,
     sensor_map: HashMap<LongToken, Sensor>,
+    visibility_map: HashMap<String, Visibility>,
     sorted_scene_tokens: Vec<LongToken>,
     sorted_sample_tokens: Vec<LongToken>,
 }
@@ -46,11 +50,11 @@ impl NuSceneDataset {
     pub fn name(&self) -> &str {
         &self.name
     }
-    
+
     pub fn dir(&self) -> &Path {
         &self.dataset_dir
     }
-    
+
     pub fn load<S, P>(name: S, dir: P) -> Fallible<Self>
     where
         S: AsRef<str>,
@@ -524,11 +528,12 @@ impl NuSceneDataset {
             instance_map: instance_internal_map,
             log_map,
             map_map,
-            scene_map: scene_internal_map,
             sample_map: sample_internal_map,
             sample_annotation_map,
             sample_data_map,
+            scene_map: scene_internal_map,
             sensor_map,
+            visibility_map,
             sorted_scene_tokens,
             sorted_sample_tokens,
         };
@@ -536,48 +541,20 @@ impl NuSceneDataset {
         Ok(ret)
     }
 
-    pub fn scene_iter<'a>(&'a self) -> SceneIter<'a> {
-        SceneIter {
+    pub fn scene_iter<'a>(&'a self) -> Iter<'a, LongToken, SceneInternal> {
+        Iter {
             dataset: self,
-            sorted_scene_tokens_iter: self.sorted_scene_tokens.iter(),
+            tokens_iter: self.sorted_scene_tokens.iter(),
+            _phantom: PhantomData,
         }
     }
 
-    pub fn sample_iter<'a>(&'a self) -> SampleIter<'a> {
-        SampleIter {
+    pub fn sample_iter<'a>(&'a self) -> Iter<'a, LongToken, SampleInternal> {
+        Iter {
             dataset: self,
-            sorted_sample_tokens_iter: self.sorted_sample_tokens.iter(),
+            tokens_iter: self.sorted_sample_tokens.iter(),
+            _phantom: PhantomData,
         }
-    }
-}
-
-pub struct SceneIter<'a> {
-    dataset: &'a NuSceneDataset,
-    sorted_scene_tokens_iter: std::slice::Iter<'a, LongToken>,
-}
-
-impl<'a> Iterator for SceneIter<'a> {
-    type Item = &'a SceneInternal;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.sorted_scene_tokens_iter
-            .next()
-            .map(|token| &self.dataset.scene_map[&token])
-    }
-}
-
-pub struct SampleIter<'a> {
-    dataset: &'a NuSceneDataset,
-    sorted_sample_tokens_iter: std::slice::Iter<'a, LongToken>,
-}
-
-impl<'a> Iterator for SampleIter<'a> {
-    type Item = &'a SampleInternal;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.sorted_sample_tokens_iter
-            .next()
-            .map(|token| &self.dataset.sample_map[&token])
     }
 }
 
