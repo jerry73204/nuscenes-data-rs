@@ -2,8 +2,9 @@
 
 pub mod base;
 pub mod error;
-mod internal;
+pub mod impl_;
 pub mod iter;
-pub mod meta;
+pub mod parsed;
+pub mod serializable;
 
-pub use base::{LoadedSampleData, NuSceneDataset};
+pub use base::{LoadedSampleData, NuScenesDataset};

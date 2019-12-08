@@ -1,10 +1,11 @@
 use crate::{
-    iter::{Iter, Iterated},
-    meta::{Log, LongToken},
+    base::WithDataset,
+    iter::Iter,
+    serializable::{Log, LongToken},
 };
 use std::{fs::File, io::Result as IoResult};
 
-impl<'a> Iterated<'a, Log> {
+impl<'a> WithDataset<'a, Log> {
     pub fn open(&self) -> IoResult<Option<File>> {
         self.inner
             .logfile
@@ -18,7 +19,7 @@ impl<'a, It> Iterator for Iter<'a, Log, It>
 where
     It: Iterator<Item = &'a LongToken>,
 {
-    type Item = Iterated<'a, Log>;
+    type Item = WithDataset<'a, Log>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.tokens_iter

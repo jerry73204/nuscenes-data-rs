@@ -1,5 +1,5 @@
+use crate::error::NuScenesDataError;
 use chrono::naive::{NaiveDate, NaiveDateTime};
-use failure::{format_err, Error as FailureError};
 use serde::{Deserialize, Serialize};
 use std::{
     convert::TryFrom,
@@ -9,6 +9,7 @@ use std::{
 
 pub const LONG_TOKEN_LENGTH: usize = 32;
 pub const SHORT_TOKEN_LENGTH: usize = 16;
+
 pub type CameraIntrinsic = Option<[[f64; 3]; 3]>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -23,19 +24,21 @@ impl Display for LongToken {
 }
 
 impl TryFrom<&str> for LongToken {
-    type Error = FailureError;
+    type Error = NuScenesDataError;
 
     fn try_from(text: &str) -> Result<Self, Self::Error> {
-        let bytes = hex::decode(text)?;
+        let bytes = hex::decode(text).map_err(|err| {
+            NuScenesDataError::ParseError(format!("cannot decode token: {:?}", err))
+        })?;
         if bytes.len() != LONG_TOKEN_LENGTH {
-            let err = format_err!(
+            let msg = format!(
                 "invalid length: expected length {}, but found {}",
                 LONG_TOKEN_LENGTH * 2,
                 text.len()
             );
-            return Err(err);
+            return Err(NuScenesDataError::ParseError(msg));
         }
-        let array = <[u8; LONG_TOKEN_LENGTH]>::try_from(bytes.as_slice())?;
+        let array = <[u8; LONG_TOKEN_LENGTH]>::try_from(bytes.as_slice()).unwrap();
         Ok(LongToken(array))
     }
 }
@@ -52,19 +55,21 @@ impl Display for ShortToken {
 }
 
 impl TryFrom<&str> for ShortToken {
-    type Error = FailureError;
+    type Error = NuScenesDataError;
 
     fn try_from(text: &str) -> Result<Self, Self::Error> {
-        let bytes = hex::decode(text)?;
+        let bytes = hex::decode(text).map_err(|err| {
+            NuScenesDataError::ParseError(format!("cannot decode token: {:?}", err))
+        })?;
         if bytes.len() != SHORT_TOKEN_LENGTH {
-            let err = format_err!(
+            let msg = format!(
                 "invalid length: expected length {}, but found {}",
                 SHORT_TOKEN_LENGTH * 2,
                 text.len()
             );
-            return Err(err);
+            return Err(NuScenesDataError::ParseError(msg));
         }
-        let array = <[u8; SHORT_TOKEN_LENGTH]>::try_from(bytes.as_slice())?;
+        let array = <[u8; SHORT_TOKEN_LENGTH]>::try_from(bytes.as_slice()).unwrap();
         Ok(ShortToken(array))
     }
 }

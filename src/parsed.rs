@@ -1,9 +1,9 @@
 use crate::{
-    error::NuSceneDataError,
-    meta::{Instance, LongToken, Sample, SampleAnnotation, Scene},
+    error::{NuScenesDataError, NuScenesDataResult},
+    serializable::{Instance, LongToken, Sample, SampleAnnotation, Scene},
 };
 use chrono::NaiveDateTime;
-use failure::{ensure, Fallible};
+// use failure::{ensure, Fallible};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -54,7 +54,7 @@ impl InstanceInternal {
     pub fn from(
         instance: Instance,
         sample_annotation_map: &HashMap<LongToken, SampleAnnotation>,
-    ) -> Fallible<Self> {
+    ) -> NuScenesDataResult<Self> {
         let Instance {
             token,
             nbr_annotations,
@@ -69,14 +69,32 @@ impl InstanceInternal {
         while let Some(annotation_token) = annotation_token_opt {
             let annotation = &sample_annotation_map
                 .get(annotation_token)
-                .ok_or(NuSceneDataError::internal_bug())?;
-            ensure!(annotation_token == &annotation.token);
+                .ok_or(NuScenesDataError::InternalBug)?;
+            if annotation_token != &annotation.token {
+                return Err(NuScenesDataError::InternalBug);
+            }
             annotation_tokens.push(annotation_token.clone());
             annotation_token_opt = annotation.next.as_ref();
         }
 
-        ensure!(annotation_tokens.len() == nbr_annotations);
-        ensure!(annotation_tokens.last().unwrap() == &last_annotation_token);
+        if !annotation_tokens.len() != nbr_annotations {
+            let msg = format!(
+                "the instance with token {} assures nbr_annotations = {}, but in fact {}",
+                token,
+                nbr_annotations,
+                annotation_tokens.len()
+            );
+            return Err(NuScenesDataError::CorruptedDataset(msg));
+        }
+        if annotation_tokens.last().unwrap() != &last_annotation_token {
+            let msg = format!(
+                "the instance with token {} assures last_annotation_token = {}, but in fact {}",
+                token,
+                last_annotation_token,
+                annotation_tokens.last().unwrap()
+            );
+            return Err(NuScenesDataError::CorruptedDataset(msg));
+        }
 
         let ret = Self {
             token,
@@ -97,7 +115,7 @@ pub struct SceneInternal {
 }
 
 impl SceneInternal {
-    pub fn from(scene: Scene, sample_map: &HashMap<LongToken, Sample>) -> Fallible<Self> {
+    pub fn from(scene: Scene, sample_map: &HashMap<LongToken, Sample>) -> NuScenesDataResult<Self> {
         let Scene {
             token,
             name,
@@ -113,13 +131,31 @@ impl SceneInternal {
 
         while let Some(sample_token) = sample_token_opt {
             let sample = &sample_map[sample_token];
-            ensure!(&sample.token == sample_token);
+            if &sample.token != sample_token {
+                return Err(NuScenesDataError::InternalBug);
+            }
             sample_tokens.push(sample_token.clone());
             sample_token_opt = sample.next.as_ref();
         }
 
-        ensure!(sample_tokens.len() == nbr_samples);
-        ensure!(sample_tokens.last().unwrap() == &last_sample_token);
+        if sample_tokens.len() != nbr_samples {
+            let msg = format!(
+                "the sample with token {} assures nbr_samples = {}, but in fact {}",
+                token,
+                nbr_samples,
+                sample_tokens.len()
+            );
+            return Err(NuScenesDataError::CorruptedDataset(msg));
+        }
+        if sample_tokens.last().unwrap() != &last_sample_token {
+            let msg = format!(
+                "the sample with token {} assures last_sample_token = {}, but in fact {}",
+                token,
+                last_sample_token,
+                sample_tokens.last().unwrap()
+            );
+            return Err(NuScenesDataError::CorruptedDataset(msg));
+        }
 
         let ret = Self {
             token,

@@ -1,12 +1,13 @@
 use crate::{
-    internal::{SampleInternal, SceneInternal},
-    iter::{Iter, Iterated, LongToken},
-    meta::Log,
+    base::WithDataset,
+    iter::Iter,
+    parsed::{SampleInternal, SceneInternal},
+    serializable::{Log, LongToken},
 };
 use std::slice::Iter as SliceIter;
 
-impl<'a> Iterated<'a, SceneInternal> {
-    pub fn log(&self) -> Iterated<'a, Log> {
+impl<'a> WithDataset<'a, SceneInternal> {
+    pub fn log(&self) -> WithDataset<'a, Log> {
         self.refer(&self.dataset.log_map[&self.inner.log_token])
     }
 
@@ -19,7 +20,7 @@ impl<'a, It> Iterator for Iter<'a, SceneInternal, It>
 where
     It: Iterator<Item = &'a LongToken>,
 {
-    type Item = Iterated<'a, SceneInternal>;
+    type Item = WithDataset<'a, SceneInternal>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.tokens_iter

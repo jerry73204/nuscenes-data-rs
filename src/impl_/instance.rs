@@ -1,12 +1,13 @@
 use crate::{
-    internal::InstanceInternal,
-    iter::{Iter, Iterated},
-    meta::{Category, LongToken, SampleAnnotation},
+    base::WithDataset,
+    iter::Iter,
+    parsed::InstanceInternal,
+    serializable::{Category, LongToken, SampleAnnotation},
 };
 use std::slice::Iter as SliceIter;
 
-impl<'a> Iterated<'a, InstanceInternal> {
-    pub fn category(&self) -> Iterated<'a, Category> {
+impl<'a> WithDataset<'a, InstanceInternal> {
+    pub fn category(&self) -> WithDataset<'a, Category> {
         self.refer(&self.dataset.category_map[&self.inner.category_token])
     }
 
@@ -19,7 +20,7 @@ impl<'a, It> Iterator for Iter<'a, InstanceInternal, It>
 where
     It: Iterator<Item = &'a LongToken>,
 {
-    type Item = Iterated<'a, InstanceInternal>;
+    type Item = WithDataset<'a, InstanceInternal>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.tokens_iter

@@ -1,9 +1,9 @@
 use crate::{
-    base::{LoadedSampleData, PointCloudMatrix},
-    error::{NuSceneDataError, NuSceneDataResult},
-    internal::SampleInternal,
-    iter::{Iter, Iterated},
-    meta::{CalibratedSensor, EgoPose, FileFormat, LongToken, SampleData},
+    base::{LoadedSampleData, PointCloudMatrix, WithDataset},
+    error::{NuScenesDataError, NuScenesDataResult},
+    iter::Iter,
+    parsed::SampleInternal,
+    serializable::{CalibratedSensor, EgoPose, FileFormat, LongToken, SampleData},
 };
 // use memmap::MmapOptions;
 use nalgebra::{Dynamic, VecStorage, U5};
@@ -13,12 +13,12 @@ use std::{
     io::{prelude::*, BufReader, Result as IoResult},
 };
 
-impl<'a> Iterated<'a, SampleData> {
+impl<'a> WithDataset<'a, SampleData> {
     pub fn open(&self) -> IoResult<File> {
         File::open(self.dataset.dataset_dir.join(&self.inner.filename))
     }
 
-    pub fn load_raw(&self) -> NuSceneDataResult<Vec<u8>> {
+    pub fn load_raw(&self) -> NuScenesDataResult<Vec<u8>> {
         let path = self.dataset.dataset_dir.join(&self.inner.filename);
         let mut reader = BufReader::new(File::open(path)?);
         let mut buf = vec![];
@@ -26,19 +26,19 @@ impl<'a> Iterated<'a, SampleData> {
         Ok(buf)
     }
 
-    pub fn load(&self) -> NuSceneDataResult<LoadedSampleData> {
+    pub fn load(&self) -> NuScenesDataResult<LoadedSampleData> {
         let path = self.dataset.dataset_dir.join(&self.inner.filename);
 
         let data = match self.inner.fileformat {
             FileFormat::Bin => {
                 let bytes = self.load_raw()?;
                 let values = safe_transmute::transmute_many::<f32, SingleManyGuard>(&bytes)
-                    .map_err(|_| NuSceneDataError::CorruptedFile(path.clone()))?;
+                    .map_err(|_| NuScenesDataError::CorruptedFile(path.clone()))?;
                 if values.len() % 5 != 0 {
-                    return Err(NuSceneDataError::CorruptedFile(path));
+                    return Err(NuScenesDataError::CorruptedFile(path));
                 }
                 let n_rows = values.len() / 5;
-                
+
                 // TODO: this step takes one copy of the buffer. try to use more efficient impl.
                 let storage = VecStorage::new(Dynamic::new(n_rows), U5, Vec::from(values));
                 let matrix = PointCloudMatrix::from_data(storage);
@@ -53,26 +53,26 @@ impl<'a> Iterated<'a, SampleData> {
         Ok(data)
     }
 
-    pub fn sample(&self) -> Iterated<'a, SampleInternal> {
+    pub fn sample(&self) -> WithDataset<'a, SampleInternal> {
         self.refer(&self.dataset.sample_map[&self.inner.sample_token])
     }
 
-    pub fn ego_pose(&self) -> Iterated<'a, EgoPose> {
+    pub fn ego_pose(&self) -> WithDataset<'a, EgoPose> {
         self.refer(&self.dataset.ego_pose_map[&self.inner.ego_pose_token])
     }
 
-    pub fn calibrated_sensor(&self) -> Iterated<'a, CalibratedSensor> {
+    pub fn calibrated_sensor(&self) -> WithDataset<'a, CalibratedSensor> {
         self.refer(&self.dataset.calibrated_sensor_map[&self.inner.calibrated_sensor_token])
     }
 
-    pub fn prev(&self) -> Option<Iterated<'a, SampleData>> {
+    pub fn prev(&self) -> Option<WithDataset<'a, SampleData>> {
         self.inner
             .prev
             .as_ref()
             .map(|token| self.refer(&self.dataset.sample_data_map[token]))
     }
 
-    pub fn next(&self) -> Option<Iterated<'a, SampleData>> {
+    pub fn next(&self) -> Option<WithDataset<'a, SampleData>> {
         self.inner
             .next
             .as_ref()
@@ -84,7 +84,7 @@ impl<'a, It> Iterator for Iter<'a, SampleData, It>
 where
     It: Iterator<Item = &'a LongToken>,
 {
-    type Item = Iterated<'a, SampleData>;
+    type Item = WithDataset<'a, SampleData>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.tokens_iter

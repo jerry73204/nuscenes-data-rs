@@ -1,13 +1,14 @@
 use crate::{
-    iter::{Iter, Iterated},
-    meta::{EgoPose, LongToken},
+    base::WithDataset,
+    iter::Iter,
+    serializable::{EgoPose, LongToken},
 };
 
 impl<'a, It> Iterator for Iter<'a, EgoPose, It>
 where
     It: Iterator<Item = &'a LongToken>,
 {
-    type Item = Iterated<'a, EgoPose>;
+    type Item = WithDataset<'a, EgoPose>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.tokens_iter

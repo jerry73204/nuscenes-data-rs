@@ -1,14 +1,13 @@
 use crate::{
-    error::NuSceneDataError,
-    internal::{InstanceInternal, SampleInternal, SceneInternal},
+    error::{NuScenesDataError, NuScenesDataResult},
     iter::Iter,
-    meta::{
+    parsed::{InstanceInternal, SampleInternal, SceneInternal},
+    serializable::{
         Attribute, CalibratedSensor, Category, EgoPose, Instance, Log, LongToken, Map, Sample,
         SampleAnnotation, SampleData, Scene, Sensor, ShortToken, Visibility,
     },
 };
 
-use failure::{bail, ensure, Fallible};
 use image::DynamicImage;
 use itertools::Itertools;
 use nalgebra::{Dynamic, Matrix, VecStorage, U5};
@@ -18,6 +17,7 @@ use std::{
     fs::File,
     io::BufReader,
     marker::PhantomData,
+    ops::Deref,
     path::{Path, PathBuf},
     slice::Iter as SliceIter,
 };
@@ -25,8 +25,8 @@ use std::{
 pub type PointCloudMatrix = Matrix<f32, Dynamic, U5, VecStorage<f32, Dynamic, U5>>;
 
 #[derive(Debug, Clone)]
-pub struct NuSceneDataset {
-    pub(crate) name: String,
+pub struct NuScenesDataset {
+    pub(crate) version: String,
     pub(crate) dataset_dir: PathBuf,
     pub(crate) attribute_map: HashMap<LongToken, Attribute>,
     pub(crate) calibrated_sensor_map: HashMap<LongToken, CalibratedSensor>,
@@ -47,22 +47,36 @@ pub struct NuSceneDataset {
     pub(crate) sorted_scene_tokens: Vec<LongToken>,
 }
 
-impl NuSceneDataset {
-    pub fn name(&self) -> &str {
-        &self.name
+impl NuScenesDataset {
+    /// Gets version of the dataset.
+    pub fn version(&self) -> &str {
+        &self.version
     }
 
+    /// Gets the directory of dataset.
     pub fn dir(&self) -> &Path {
         &self.dataset_dir
     }
 
-    pub fn load<S, P>(name: S, dir: P) -> Fallible<Self>
+    /// Load the dataset directory.
+    ///
+    /// ```rust
+    /// use nuscenes_data::NuScenesDataset;
+    ///
+    /// fn main() -> NuscenesDataResult<()> {
+    ///     let dataset = NuScenesDataset::load("1.02", "/path/to/your/dataset")?;
+    ///     OK(())
+    /// }
+    /// ```
+    pub fn load<S, P>(version: S, dir: P) -> NuScenesDataResult<Self>
     where
         S: AsRef<str>,
         P: AsRef<Path>,
     {
         let dataset_dir = dir.as_ref();
-        let meta_dir = dataset_dir.join(name.as_ref());
+
+        let meta_dir_name = format!("v{}-train", version.as_ref());
+        let meta_dir = dataset_dir.join(meta_dir_name);
 
         // load JSON files
         let attribute_list: Vec<Attribute> = {
@@ -174,32 +188,40 @@ impl NuSceneDataset {
 
         // check calibrated sensor integrity
         for (_, calibrated_sensor) in calibrated_sensor_map.iter() {
-            ensure!(
-                sensor_map.contains_key(&calibrated_sensor.sensor_token),
-                "the token {} does not refer to any sensor",
-                calibrated_sensor.sensor_token
-            );
+            if !sensor_map.contains_key(&calibrated_sensor.sensor_token) {
+                let msg = format!(
+                    "the token {} does not refer to any sensor",
+                    calibrated_sensor.sensor_token
+                );
+                return Err(NuScenesDataError::CorruptedDataset(msg));
+            }
         }
 
         // check instance integrity
         for (instance_token, instance) in instance_map.iter() {
-            ensure!(
-                sample_annotation_map.contains_key(&instance.first_annotation_token),
-                "the token {} does not refer to any sample annotation",
-                instance.first_annotation_token
-            );
+            if !sample_annotation_map.contains_key(&instance.first_annotation_token) {
+                let msg = format!(
+                    "the token {} does not refer to any sample annotation",
+                    instance.first_annotation_token
+                );
+                return Err(NuScenesDataError::CorruptedDataset(msg));
+            }
 
-            ensure!(
-                sample_annotation_map.contains_key(&instance.last_annotation_token),
-                "the token {} does not refer to any sample annotation",
-                instance.last_annotation_token
-            );
+            if !sample_annotation_map.contains_key(&instance.last_annotation_token) {
+                let msg = format!(
+                    "the token {} does not refer to any sample annotation",
+                    instance.last_annotation_token
+                );
+                return Err(NuScenesDataError::CorruptedDataset(msg));
+            }
 
-            ensure!(
-                category_map.contains_key(&instance.category_token),
-                "the token {} does not refer to any sample category",
-                instance.category_token
-            );
+            if !category_map.contains_key(&instance.category_token) {
+                let msg = format!(
+                    "the token {} does not refer to any sample category",
+                    instance.category_token
+                );
+                return Err(NuScenesDataError::CorruptedDataset(msg));
+            }
 
             let mut annotation_token = &instance.first_annotation_token;
             let mut prev_annotation_token = None;
@@ -210,33 +232,38 @@ impl NuSceneDataset {
                     Some(annotation) => annotation,
                     None => {
                         match prev_annotation_token {
-                            Some(prev) => bail!("the sample_annotation with token {} points to next token {} that does not exist", prev, annotation_token),
-                            None => bail!("the instance with token {} points to first_annotation_token {} that does not exist", instance_token, annotation_token),
+                            Some(prev) => return Err(NuScenesDataError::CorruptedDataset(format!("the sample_annotation with token {} points to next token {} that does not exist", prev, annotation_token))),
+                            None => return Err(NuScenesDataError::CorruptedDataset(format!("the instance with token {} points to first_annotation_token {} that does not exist", instance_token, annotation_token))),
                         }
                     }
                 };
 
-                ensure!(
-                    prev_annotation_token == annotation.prev.as_ref(),
-                    "the prev field is not correct in sample annotation with token {}",
-                    annotation_token
-                );
+                if prev_annotation_token != annotation.prev.as_ref() {
+                    let msg = format!(
+                        "the prev field is not correct in sample annotation with token {}",
+                        annotation_token
+                    );
+                    return Err(NuScenesDataError::CorruptedDataset(msg));
+                }
                 count += 1;
 
                 prev_annotation_token = Some(annotation_token);
                 annotation_token = match &annotation.next {
                     Some(next) => next,
                     None => {
-                        ensure!(
-                            &instance.last_annotation_token == annotation_token,
-                            "the last_annotation_token is not correct in instance with token {}",
-                            instance_token
-                        );
-                        ensure!(
-                            count == instance.nbr_annotations,
-                            "the nbr_annotations is not correct in instance with token {}",
-                            instance_token
-                        );
+                        if &instance.last_annotation_token != annotation_token {
+                            let msg = format!("the last_annotation_token is not correct in instance with token {}",
+                                                  instance_token);
+                            return Err(NuScenesDataError::CorruptedDataset(msg));
+                        }
+
+                        if count != instance.nbr_annotations {
+                            let msg = format!(
+                                "the nbr_annotations is not correct in instance with token {}",
+                                instance_token
+                            );
+                            return Err(NuScenesDataError::CorruptedDataset(msg));
+                        }
                         break;
                     }
                 };
@@ -246,33 +273,35 @@ impl NuSceneDataset {
         // check map integrity
         for (_, map) in map_map.iter() {
             for token in map.log_tokens.iter() {
-                ensure!(
-                    log_map.contains_key(token),
-                    "the token {} does not refer to any log",
-                    token
-                );
+                if !log_map.contains_key(token) {
+                    let msg = format!("the token {} does not refer to any log", token);
+                    return Err(NuScenesDataError::CorruptedDataset(msg));
+                }
             }
         }
 
         // check scene integrity
         for (scene_token, scene) in scene_map.iter() {
-            ensure!(
-                log_map.contains_key(&scene.log_token),
-                "the token {} does not refer to any log",
-                scene.log_token
-            );
+            if !log_map.contains_key(&scene.log_token) {
+                let msg = format!("the token {} does not refer to any log", scene.log_token);
+                return Err(NuScenesDataError::CorruptedDataset(msg));
+            }
 
-            ensure!(
-                sample_map.contains_key(&scene.first_sample_token),
-                "the token {} does not refer to any sample",
-                scene.first_sample_token
-            );
+            if !sample_map.contains_key(&scene.first_sample_token) {
+                let msg = format!(
+                    "the token {} does not refer to any sample",
+                    scene.first_sample_token
+                );
+                return Err(NuScenesDataError::CorruptedDataset(msg));
+            }
 
-            ensure!(
-                sample_map.contains_key(&scene.last_sample_token),
-                "the token {} does not refer to any sample",
-                scene.last_sample_token
-            );
+            if !sample_map.contains_key(&scene.last_sample_token) {
+                let msg = format!(
+                    "the token {} does not refer to any sample",
+                    scene.last_sample_token
+                );
+                return Err(NuScenesDataError::CorruptedDataset(msg));
+            }
 
             let mut prev_sample_token = None;
             let mut sample_token = &scene.first_sample_token;
@@ -283,32 +312,38 @@ impl NuSceneDataset {
                     Some(sample) => sample,
                     None => {
                         match prev_sample_token {
-                            Some(prev) => bail!("the sample with token {} points to a next token {} that does not exist", prev, sample_token),
-                            None => bail!("the scene with token {} points to first_sample_token {} that does not exist", scene_token, sample_token),
+                            Some(prev) => return Err(NuScenesDataError::CorruptedDataset(format!("the sample with token {} points to a next token {} that does not exist", prev, sample_token))),
+                            None => return Err(NuScenesDataError::CorruptedDataset(format!("the scene with token {} points to first_sample_token {} that does not exist", scene_token, sample_token))),
                         }
                     }
                 };
-                ensure!(
-                    prev_sample_token == sample.prev.as_ref(),
-                    "the prev field in sample with token {} is not correct",
-                    sample_token
-                );
+                if prev_sample_token != sample.prev.as_ref() {
+                    let msg = format!(
+                        "the prev field in sample with token {} is not correct",
+                        sample_token
+                    );
+                    return Err(NuScenesDataError::CorruptedDataset(msg));
+                }
                 prev_sample_token = Some(sample_token);
                 count += 1;
 
                 sample_token = match &sample.next {
                     Some(next) => next,
                     None => {
-                        ensure!(
-                            sample_token == &scene.last_sample_token,
-                            "the last_sample_token is not correct in scene with token {}",
-                            scene_token
-                        );
-                        ensure!(
-                            count == scene.nbr_samples,
-                            "the nbr_samples in scene with token {} is not correct",
-                            scene_token
-                        );
+                        if sample_token != &scene.last_sample_token {
+                            let msg = format!(
+                                "the last_sample_token is not correct in scene with token {}",
+                                scene_token
+                            );
+                            return Err(NuScenesDataError::CorruptedDataset(msg));
+                        }
+                        if count != scene.nbr_samples {
+                            let msg = format!(
+                                "the nbr_samples in scene with token {} is not correct",
+                                scene_token
+                            );
+                            return Err(NuScenesDataError::CorruptedDataset(msg));
+                        }
                         break;
                     }
                 };
@@ -317,110 +352,120 @@ impl NuSceneDataset {
 
         // check sample integrity
         for (_, sample) in sample_map.iter() {
-            ensure!(
-                scene_map.contains_key(&sample.scene_token),
-                "the token {} does not refer to any scene",
-                sample.scene_token
-            );
+            if !scene_map.contains_key(&sample.scene_token) {
+                let msg = format!(
+                    "the token {} does not refer to any scene",
+                    sample.scene_token
+                );
+                return Err(NuScenesDataError::CorruptedDataset(msg));
+            }
 
             if let Some(token) = &sample.prev {
-                ensure!(
-                    sample_map.contains_key(token),
-                    "the token {} does not refer to any sample",
-                    token
-                );
+                if !sample_map.contains_key(token) {
+                    let msg = format!("the token {} does not refer to any sample", token);
+                    return Err(NuScenesDataError::CorruptedDataset(msg));
+                }
             }
 
             if let Some(token) = &sample.next {
-                ensure!(
-                    sample_map.contains_key(token),
-                    "the token {} does not refer to any sample",
-                    token
-                );
+                if !sample_map.contains_key(token) {
+                    let msg = format!("the token {} does not refer to any sample", token);
+                    return Err(NuScenesDataError::CorruptedDataset(msg));
+                }
             }
         }
 
         // check sample annotation integrity
         for (_, sample_annotation) in sample_annotation_map.iter() {
-            ensure!(
-                sample_map.contains_key(&sample_annotation.sample_token),
-                "the token {} does not refer to any sample",
-                sample_annotation.sample_token
-            );
+            if !sample_map.contains_key(&sample_annotation.sample_token) {
+                let msg = format!(
+                    "the token {} does not refer to any sample",
+                    sample_annotation.sample_token
+                );
+                return Err(NuScenesDataError::CorruptedDataset(msg));
+            }
 
-            ensure!(
-                instance_map.contains_key(&sample_annotation.instance_token),
-                "the token {} does not refer to any instance",
-                sample_annotation.instance_token
-            );
+            if !instance_map.contains_key(&sample_annotation.instance_token) {
+                let msg = format!(
+                    "the token {} does not refer to any instance",
+                    sample_annotation.instance_token
+                );
+                return Err(NuScenesDataError::CorruptedDataset(msg));
+            }
 
             for token in sample_annotation.attribute_tokens.iter() {
-                ensure!(
-                    attribute_map.contains_key(token),
-                    "the token {} does not refer to any attribute",
-                    token
-                );
+                if !attribute_map.contains_key(token) {
+                    let msg = format!("the token {} does not refer to any attribute", token);
+                    return Err(NuScenesDataError::CorruptedDataset(msg));
+                }
             }
 
             if let Some(token) = &sample_annotation.visibility_token {
-                ensure!(
-                    visibility_map.contains_key(token),
-                    "the token {} does not refer to any visibility",
-                    token
-                );
+                if !visibility_map.contains_key(token) {
+                    let msg = format!("the token {} does not refer to any visibility", token);
+                    return Err(NuScenesDataError::CorruptedDataset(msg));
+                }
             }
 
             if let Some(token) = &sample_annotation.prev {
-                ensure!(
-                    sample_annotation_map.contains_key(token),
-                    "the token {} does not refer to any sample annotation",
-                    token
-                );
+                if !sample_annotation_map.contains_key(token) {
+                    let msg = format!(
+                        "the token {} does not refer to any sample annotation",
+                        token
+                    );
+                    return Err(NuScenesDataError::CorruptedDataset(msg));
+                }
             }
 
             if let Some(token) = &sample_annotation.next {
-                ensure!(
-                    sample_annotation_map.contains_key(token),
-                    "the token {} does not refer to any sample annotation",
-                    token
-                );
+                if !sample_annotation_map.contains_key(token) {
+                    let msg = format!(
+                        "the token {} does not refer to any sample annotation",
+                        token
+                    );
+                    return Err(NuScenesDataError::CorruptedDataset(msg));
+                }
             }
         }
 
         // check sample data integrity
         for (_, sample_data) in sample_data_map.iter() {
-            ensure!(
-                sample_map.contains_key(&sample_data.sample_token),
-                "the token {} does not refer to any sample",
-                sample_data.sample_token
-            );
+            if !sample_map.contains_key(&sample_data.sample_token) {
+                let msg = format!(
+                    "the token {} does not refer to any sample",
+                    sample_data.sample_token
+                );
+                return Err(NuScenesDataError::CorruptedDataset(msg));
+            }
 
-            ensure!(
-                ego_pose_map.contains_key(&sample_data.ego_pose_token),
-                "the token {} does not refer to any ego pose",
-                sample_data.ego_pose_token
-            );
+            if !ego_pose_map.contains_key(&sample_data.ego_pose_token) {
+                let msg = format!(
+                    "the token {} does not refer to any ego pose",
+                    sample_data.ego_pose_token
+                );
+                return Err(NuScenesDataError::CorruptedDataset(msg));
+            }
 
-            ensure!(
-                calibrated_sensor_map.contains_key(&sample_data.calibrated_sensor_token),
-                "the token {} does not refer to any calibrated sensor",
-                sample_data.calibrated_sensor_token
-            );
+            if !calibrated_sensor_map.contains_key(&sample_data.calibrated_sensor_token) {
+                let msg = format!(
+                    "the token {} does not refer to any calibrated sensor",
+                    sample_data.calibrated_sensor_token
+                );
+                return Err(NuScenesDataError::CorruptedDataset(msg));
+            }
 
             if let Some(token) = &sample_data.prev {
-                ensure!(
-                    sample_data_map.contains_key(token),
-                    "the token {} does not refer to any sample data",
-                    token
-                );
+                if !sample_data_map.contains_key(token) {
+                    let msg = format!("the token {} does not refer to any sample data", token);
+                    return Err(NuScenesDataError::CorruptedDataset(msg));
+                }
             }
 
             if let Some(token) = &sample_data.next {
-                ensure!(
-                    sample_data_map.contains_key(token),
-                    "the token {} does not refer to any sample data",
-                    token
-                );
+                if !sample_data_map.contains_key(token) {
+                    let msg = format!("the token {} does not refer to any sample data", token);
+                    return Err(NuScenesDataError::CorruptedDataset(msg));
+                }
             }
         }
 
@@ -450,7 +495,7 @@ impl NuSceneDataset {
                 let ret = InstanceInternal::from(instance, &sample_annotation_map)?;
                 Ok((instance_token, ret))
             })
-            .collect::<Fallible<HashMap<_, _>>>()?;
+            .collect::<NuScenesDataResult<HashMap<_, _>>>()?;
 
         let scene_internal_map = scene_map
             .into_iter()
@@ -458,21 +503,21 @@ impl NuSceneDataset {
                 let internal = SceneInternal::from(scene, &sample_map)?;
                 Ok((scene_token, internal))
             })
-            .collect::<Fallible<HashMap<_, _>>>()?;
+            .collect::<NuScenesDataResult<HashMap<_, _>>>()?;
 
         let sample_internal_map = sample_map
             .into_iter()
             .map(|(sample_token, sample)| {
                 let sample_data_tokens = sample_to_sample_data_groups
                     .remove(&sample_token)
-                    .ok_or(NuSceneDataError::internal_bug())?;
+                    .ok_or(NuScenesDataError::InternalBug)?;
                 let annotation_tokens = sample_to_annotation_groups
                     .remove(&sample_token)
-                    .ok_or(NuSceneDataError::internal_bug())?;
+                    .ok_or(NuScenesDataError::InternalBug)?;
                 let internal = SampleInternal::from(sample, annotation_tokens, sample_data_tokens);
                 Ok((sample_token, internal))
             })
-            .collect::<Fallible<HashMap<_, _>>>()?;
+            .collect::<NuScenesDataResult<HashMap<_, _>>>()?;
 
         // sort ego_pose by timestamp
         let sorted_ego_pose_tokens = {
@@ -527,17 +572,17 @@ impl NuSceneDataset {
                         .map(|sample_token| {
                             let sample = sample_internal_map
                                 .get(&sample_token)
-                                .ok_or(NuSceneDataError::internal_bug())?;
+                                .ok_or(NuScenesDataError::InternalBug)?;
                             Ok(sample.timestamp)
                         })
-                        .collect::<Fallible<Vec<_>>>()?
+                        .collect::<NuScenesDataResult<Vec<_>>>()?
                         .into_iter()
                         .min()
-                        .ok_or(NuSceneDataError::internal_bug())?;
+                        .ok_or(NuScenesDataError::InternalBug)?;
 
                     Ok((scene_token, timestamp))
                 })
-                .collect::<Fallible<Vec<_>>>()?;
+                .collect::<NuScenesDataResult<Vec<_>>>()?;
             sorted_pairs.sort_by_cached_key(|(_, timestamp)| timestamp.clone());
 
             sorted_pairs
@@ -548,7 +593,7 @@ impl NuSceneDataset {
 
         // construct result
         let ret = Self {
-            name: name.as_ref().to_owned(),
+            version: version.as_ref().to_owned(),
             dataset_dir: dataset_dir.to_owned(),
             attribute_map,
             calibrated_sensor_map,
@@ -649,12 +694,46 @@ pub enum LoadedSampleData {
     Image(DynamicImage),
 }
 
-fn load_json<'de, T, P>(path: P) -> Fallible<T>
+#[derive(Debug, Clone)]
+pub struct WithDataset<'a, T> {
+    pub(crate) dataset: &'a NuScenesDataset,
+    pub(crate) inner: &'a T,
+}
+
+impl<'a, T> WithDataset<'a, T> {
+    pub(crate) fn refer<S>(&self, referred: &'a S) -> WithDataset<'a, S> {
+        WithDataset {
+            dataset: self.dataset,
+            inner: referred,
+        }
+    }
+
+    pub(crate) fn refer_iter<Value, It>(&self, tokens_iter: It) -> Iter<'a, Value, It> {
+        Iter {
+            dataset: self.dataset,
+            tokens_iter,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a, T> Deref for WithDataset<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner
+    }
+}
+
+fn load_json<'de, T, P>(path: P) -> NuScenesDataResult<T>
 where
     P: AsRef<Path>,
     T: DeserializeOwned,
 {
     let reader = BufReader::new(File::open(path.as_ref())?);
-    let value = serde_json::from_reader(reader)?;
+    let value = serde_json::from_reader(reader).map_err(|err| {
+        let msg = format!("failed to load file {}: {:?}", path.as_ref().display(), err);
+        NuScenesDataError::CorruptedDataset(msg)
+    })?;
     Ok(value)
 }
