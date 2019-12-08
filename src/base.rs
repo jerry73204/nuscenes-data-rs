@@ -694,6 +694,7 @@ pub enum LoadedSampleData {
     Image(DynamicImage),
 }
 
+/// A wrapper struct that wraps around a base type with a reference to dataset.
 #[derive(Debug, Clone)]
 pub struct WithDataset<'a, T> {
     pub(crate) dataset: &'a NuScenesDataset,

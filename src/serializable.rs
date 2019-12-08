@@ -170,7 +170,7 @@ pub struct SampleData {
     pub token: LongToken,
     pub fileformat: FileFormat,
     pub is_key_frame: bool,
-    pub filename: String,
+    pub filename: PathBuf,
     #[serde(with = "timestamp_serde")]
     pub timestamp: NaiveDateTime,
     pub sample_token: LongToken,

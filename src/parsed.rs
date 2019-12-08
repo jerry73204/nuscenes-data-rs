@@ -77,7 +77,7 @@ impl InstanceInternal {
             annotation_token_opt = annotation.next.as_ref();
         }
 
-        if !annotation_tokens.len() != nbr_annotations {
+        if annotation_tokens.len() != nbr_annotations {
             let msg = format!(
                 "the instance with token {} assures nbr_annotations = {}, but in fact {}",
                 token,

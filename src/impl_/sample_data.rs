@@ -27,22 +27,42 @@ impl<'a> WithDataset<'a, SampleData> {
     }
 
     pub fn load(&self) -> NuScenesDataResult<LoadedSampleData> {
+        let filename = &self.inner.filename;
         let path = self.dataset.dataset_dir.join(&self.inner.filename);
+
+        let dirname = path.parent().ok_or(
+            NuScenesDataError::CorruptedDataset(format!("the filename {} in sample data with token {} must be placed under images/ or lidar/", filename.display(), self.inner.token))
+        )?.file_name()
+            .ok_or(NuScenesDataError::CorruptedDataset(format!("the filename {} in sample data with token {} is not valid", filename.display(), self.inner.token)))?
+        .to_str()
+                        .ok_or(NuScenesDataError::CorruptedDataset(format!("the filename {} in sample data with token {} is not valid", filename.display(), self.inner.token)))?;
 
         let data = match self.inner.fileformat {
             FileFormat::Bin => {
-                let bytes = self.load_raw()?;
-                let values = safe_transmute::transmute_many::<f32, SingleManyGuard>(&bytes)
-                    .map_err(|_| NuScenesDataError::CorruptedFile(path.clone()))?;
-                if values.len() % 5 != 0 {
-                    return Err(NuScenesDataError::CorruptedFile(path));
-                }
-                let n_rows = values.len() / 5;
+                match dirname {
+                    "lidar" => {
+                        let bytes = self.load_raw()?;
+                        let values = safe_transmute::transmute_many::<f32, SingleManyGuard>(&bytes)
+                            .map_err(|_| NuScenesDataError::CorruptedFile(path.clone()))?;
+                        if values.len() % 5 != 0 {
+                            return Err(NuScenesDataError::CorruptedFile(path));
+                        }
+                        let n_rows = values.len() / 5;
 
-                // TODO: this step takes one copy of the buffer. try to use more efficient impl.
-                let storage = VecStorage::new(Dynamic::new(n_rows), U5, Vec::from(values));
-                let matrix = PointCloudMatrix::from_data(storage);
-                LoadedSampleData::PointCloud(matrix)
+                        // TODO: this step takes one copy of the buffer. try to use more efficient impl.
+                        let storage = VecStorage::new(Dynamic::new(n_rows), U5, Vec::from(values));
+                        let matrix = PointCloudMatrix::from_data(storage);
+                        LoadedSampleData::PointCloud(matrix)
+                    }
+                    _ => {
+                        let msg = format!(
+                            "cannot determine the file format of {} from sample data with token {}",
+                            path.display(),
+                            self.inner.token
+                        );
+                        return Err(NuScenesDataError::CorruptedDataset(msg));
+                    }
+                }
             }
             FileFormat::Jpeg => {
                 let image = image::open(path)?;
