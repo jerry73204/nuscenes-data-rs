@@ -3,12 +3,15 @@ use crate::{
     meta::Visibility,
 };
 
-impl<'a> Iterator for Iter<'a, String, Visibility> {
+impl<'a, It> Iterator for Iter<'a, Visibility, It>
+where
+    It: Iterator<Item = String>,
+{
     type Item = Iterated<'a, Visibility>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.tokens_iter
             .next()
-            .map(|token| self.refer(&self.dataset.visibility_map[token]))
+            .map(|token| self.refer(&self.dataset.visibility_map[&token]))
     }
 }

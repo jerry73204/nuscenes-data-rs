@@ -1,6 +1,6 @@
 use failure::Fail;
 use image::ImageError;
-use std::io::Error as IoError;
+use std::{io::Error as IoError, path::PathBuf};
 
 pub type NuSceneDataResult<T> = Result<T, NuSceneDataError>;
 
@@ -8,6 +8,8 @@ pub type NuSceneDataResult<T> = Result<T, NuSceneDataError>;
 pub enum NuSceneDataError {
     #[fail(display = "internal error, please report bug")]
     InternalBug,
+    #[fail(display = "corrupted file: {:?}", _0)]
+    CorruptedFile(PathBuf),
     #[fail(display = "I/O error: {:?}", _0)]
     IoError(IoError),
     #[fail(display = "image error: {:?}", _0)]

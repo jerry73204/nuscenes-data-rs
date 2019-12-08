@@ -3,7 +3,10 @@ use crate::{
     meta::{Attribute, LongToken},
 };
 
-impl<'a> Iterator for Iter<'a, LongToken, Attribute> {
+impl<'a, It> Iterator for Iter<'a, Attribute, It>
+where
+    It: Iterator<Item = &'a LongToken>,
+{
     type Item = Iterated<'a, Attribute>;
 
     fn next(&mut self) -> Option<Self::Item> {

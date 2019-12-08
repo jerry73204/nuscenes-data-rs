@@ -14,7 +14,10 @@ impl<'a> Iterated<'a, Log> {
     }
 }
 
-impl<'a> Iterator for Iter<'a, LongToken, Log> {
+impl<'a, It> Iterator for Iter<'a, Log, It>
+where
+    It: Iterator<Item = &'a LongToken>,
+{
     type Item = Iterated<'a, Log>;
 
     fn next(&mut self) -> Option<Self::Item> {

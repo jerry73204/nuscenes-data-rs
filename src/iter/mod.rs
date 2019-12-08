@@ -31,13 +31,17 @@ pub use visibility::*;
 
 use std::marker::PhantomData;
 
-pub struct Iter<'a, Key, Value> {
+#[derive(Debug, Clone)]
+pub struct Iter<'a, Value, It> {
     pub(crate) dataset: &'a NuSceneDataset,
-    pub(crate) tokens_iter: std::slice::Iter<'a, Key>,
+    pub(crate) tokens_iter: It,
     pub(crate) _phantom: PhantomData<Value>,
 }
 
-impl<'a, Key, Value> Iter<'a, Key, Value> {
+impl<'a, Value, It> Iter<'a, Value, It>
+where
+    It: Iterator,
+{
     fn refer(&self, referred: &'a Value) -> Iterated<'a, Value> {
         Iterated {
             dataset: self.dataset,
@@ -46,6 +50,7 @@ impl<'a, Key, Value> Iter<'a, Key, Value> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Iterated<'a, T> {
     dataset: &'a NuSceneDataset,
     inner: &'a T,
@@ -59,13 +64,10 @@ impl<'a, T> Iterated<'a, T> {
         }
     }
 
-    fn refer_iter<Key, Value>(
-        &self,
-        referred_iter: std::slice::Iter<'a, Key>,
-    ) -> Iter<'a, Key, Value> {
+    fn refer_iter<Value, It>(&self, tokens_iter: It) -> Iter<'a, Value, It> {
         Iter {
             dataset: self.dataset,
-            tokens_iter: referred_iter,
+            tokens_iter,
             _phantom: PhantomData,
         }
     }
