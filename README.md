@@ -1,4 +1,4 @@
-# nuscenes-data Loading nuScenes Dataset in Rust
+# nuscenes-data: Loading nuScenes Dataset in Rust
 
 This project provides functionality to load and inspect nuScenes dataset. It is under development and should not be considered for production usage.
 
