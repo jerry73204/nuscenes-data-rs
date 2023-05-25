@@ -3,7 +3,8 @@ use crate::{
     error::{NuScenesDataError, NuScenesDataResult},
     iter::Iter,
     parsed::SampleInternal,
-    serializable::{CalibratedSensor, EgoPose, FileFormat, LongToken, SampleData},
+    serializable::{CalibratedSensor, EgoPose, FileFormat, SampleData},
+    token::LongToken,
 };
 // use memmap::MmapOptions;
 use nalgebra::{Dyn, VecStorage, U5};

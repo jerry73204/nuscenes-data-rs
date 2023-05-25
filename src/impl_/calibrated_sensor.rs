@@ -1,7 +1,8 @@
 use crate::{
     base::WithDataset,
     iter::Iter,
-    serializable::{CalibratedSensor, LongToken, Sensor},
+    serializable::{CalibratedSensor, Sensor},
+    token::LongToken,
 };
 
 impl<'a> WithDataset<'a, CalibratedSensor> {

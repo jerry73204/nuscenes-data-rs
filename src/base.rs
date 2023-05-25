@@ -3,9 +3,10 @@ use crate::{
     iter::Iter,
     parsed::{InstanceInternal, SampleInternal, SceneInternal},
     serializable::{
-        Attribute, CalibratedSensor, Category, EgoPose, Instance, Log, LongToken, Map, Sample,
-        SampleAnnotation, SampleData, Scene, Sensor, ShortToken, Visibility,
+        Attribute, CalibratedSensor, Category, EgoPose, Instance, Log, Map, Sample,
+        SampleAnnotation, SampleData, Scene, Sensor, Visibility,
     },
+    token::{LongToken, ShortToken},
 };
 
 use image::DynamicImage;

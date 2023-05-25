@@ -1,7 +1,8 @@
 use crate::{
     base::WithDataset,
     iter::Iter,
-    serializable::{Log, LongToken, Map, ShortToken},
+    serializable::{Log, Map},
+    token::{LongToken, ShortToken},
 };
 use std::slice::Iter as SliceIter;
 

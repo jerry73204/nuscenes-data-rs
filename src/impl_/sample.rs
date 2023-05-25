@@ -2,7 +2,8 @@ use crate::{
     base::WithDataset,
     iter::Iter,
     parsed::{SampleInternal, SceneInternal},
-    serializable::{LongToken, SampleAnnotation, SampleData},
+    serializable::{SampleAnnotation, SampleData},
+    token::LongToken,
 };
 use std::slice::Iter as SliceIter;
 

@@ -1,8 +1,4 @@
-use crate::{
-    base::WithDataset,
-    iter::Iter,
-    serializable::{Attribute, LongToken},
-};
+use crate::{base::WithDataset, iter::Iter, serializable::Attribute, token::LongToken};
 
 impl<'a, It> Iterator for Iter<'a, Attribute, It>
 where

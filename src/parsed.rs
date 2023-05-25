@@ -1,6 +1,7 @@
 use crate::{
     error::{NuScenesDataError, NuScenesDataResult},
-    serializable::{Instance, LongToken, Sample, SampleAnnotation, Scene},
+    serializable::{Instance, Sample, SampleAnnotation, Scene},
+    token::LongToken,
 };
 use chrono::NaiveDateTime;
 use std::collections::HashMap;

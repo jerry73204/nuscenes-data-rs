@@ -1,8 +1,4 @@
-use crate::{
-    base::WithDataset,
-    iter::Iter,
-    serializable::{Log, LongToken},
-};
+use crate::{base::WithDataset, iter::Iter, serializable::Log, token::LongToken};
 use std::{fs::File, io::Result as IoResult};
 
 impl<'a> WithDataset<'a, Log> {
