@@ -12,7 +12,7 @@ pub const SHORT_TOKEN_LENGTH: usize = 16;
 
 pub type CameraIntrinsic = Option<[[f64; 3]; 3]>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct LongToken([u8; LONG_TOKEN_LENGTH]);
 
 impl Display for LongToken {
@@ -207,7 +207,7 @@ pub struct Visibility {
     pub description: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Modality {
     #[serde(rename = "camera")]
     Camera,
@@ -215,7 +215,7 @@ pub enum Modality {
     Lidar,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileFormat {
     #[serde(rename = "bin")]
     Bin,
