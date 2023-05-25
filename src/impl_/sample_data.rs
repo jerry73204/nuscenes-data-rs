@@ -6,7 +6,7 @@ use crate::{
     serializable::{CalibratedSensor, EgoPose, FileFormat, LongToken, SampleData},
 };
 // use memmap::MmapOptions;
-use nalgebra::{Dynamic, VecStorage, U5};
+use nalgebra::{Dyn, VecStorage, U5};
 use safe_transmute::guard::SingleManyGuard;
 use std::{
     fs::File,
@@ -50,7 +50,7 @@ impl<'a> WithDataset<'a, SampleData> {
                         let n_rows = values.len() / 5;
 
                         // TODO: this step takes one copy of the buffer. try to use more efficient impl.
-                        let storage = VecStorage::new(Dynamic::new(n_rows), U5, Vec::from(values));
+                        let storage = VecStorage::new(Dyn(n_rows), U5, Vec::from(values));
                         let matrix = PointCloudMatrix::from_data(storage);
                         LoadedSampleData::PointCloud(matrix)
                     }

@@ -10,8 +10,8 @@ use crate::{
 
 use image::DynamicImage;
 use itertools::Itertools;
-use nalgebra::{Dynamic, Matrix, VecStorage, U5};
-use serde::de::DeserializeOwned;
+use nalgebra::MatrixXx5;
+use serde::Deserialize;
 use std::{
     collections::{hash_map::Keys as HashMapKeys, HashMap},
     fs::File,
@@ -22,7 +22,7 @@ use std::{
     slice::Iter as SliceIter,
 };
 
-pub type PointCloudMatrix = Matrix<f32, Dynamic, U5, VecStorage<f32, Dynamic, U5>>;
+pub type PointCloudMatrix = MatrixXx5<f32>;
 
 #[derive(Debug, Clone)]
 pub struct NuScenesDataset {
@@ -608,69 +608,65 @@ impl NuScenesDataset {
         Ok(ret)
     }
 
-    pub fn attribute_iter<'a>(
-        &'a self,
-    ) -> Iter<'a, Attribute, HashMapKeys<'a, LongToken, Attribute>> {
+    pub fn attribute_iter(&self) -> Iter<'_, Attribute, HashMapKeys<'_, LongToken, Attribute>> {
         self.refer_iter(self.attribute_map.keys())
     }
 
-    pub fn calibrated_sensor_iter<'a>(
-        &'a self,
-    ) -> Iter<'a, CalibratedSensor, HashMapKeys<'a, LongToken, CalibratedSensor>> {
+    pub fn calibrated_sensor_iter(
+        &self,
+    ) -> Iter<'_, CalibratedSensor, HashMapKeys<'_, LongToken, CalibratedSensor>> {
         self.refer_iter(self.calibrated_sensor_map.keys())
     }
 
-    pub fn category_iter<'a>(&'a self) -> Iter<'a, Category, HashMapKeys<'a, LongToken, Category>> {
+    pub fn category_iter(&self) -> Iter<'_, Category, HashMapKeys<'_, LongToken, Category>> {
         self.refer_iter(self.category_map.keys())
     }
 
-    pub fn ego_pose_iter<'a>(&'a self) -> Iter<'a, EgoPose, SliceIter<'a, LongToken>> {
+    pub fn ego_pose_iter(&self) -> Iter<'_, EgoPose, SliceIter<'_, LongToken>> {
         self.refer_iter(self.sorted_ego_pose_tokens.iter())
     }
 
-    pub fn instance_iter<'a>(
-        &'a self,
-    ) -> Iter<'a, Instance, HashMapKeys<'a, LongToken, InstanceInternal>> {
+    pub fn instance_iter(
+        &self,
+    ) -> Iter<'_, Instance, HashMapKeys<'_, LongToken, InstanceInternal>> {
         self.refer_iter(self.instance_map.keys())
     }
 
-    pub fn log_iter<'a>(&'a self) -> Iter<'a, Log, HashMapKeys<'a, LongToken, Log>> {
+    pub fn log_iter(&self) -> Iter<'_, Log, HashMapKeys<'_, LongToken, Log>> {
         self.refer_iter(self.log_map.keys())
     }
 
-    pub fn map_iter<'a>(&'a self) -> Iter<'a, Map, HashMapKeys<'a, ShortToken, Map>> {
+    pub fn map_iter(&self) -> Iter<'_, Map, HashMapKeys<'_, ShortToken, Map>> {
         self.refer_iter(self.map_map.keys())
     }
 
-    pub fn sample_iter<'a>(&'a self) -> Iter<'a, SampleInternal, SliceIter<'a, LongToken>> {
+    pub fn sample_iter(&self) -> Iter<'_, SampleInternal, SliceIter<'_, LongToken>> {
         self.refer_iter(self.sorted_sample_tokens.iter())
     }
 
-    pub fn sample_annotation_iter<'a>(
-        &'a self,
-    ) -> Iter<'a, SampleAnnotation, HashMapKeys<'a, LongToken, SampleAnnotation>> {
+    pub fn sample_annotation_iter(
+        &self,
+    ) -> Iter<'_, SampleAnnotation, HashMapKeys<'_, LongToken, SampleAnnotation>> {
         self.refer_iter(self.sample_annotation_map.keys())
     }
 
-    pub fn sample_data_iter<'a>(&'a self) -> Iter<'a, SampleData, SliceIter<'a, LongToken>> {
+    pub fn sample_data_iter(&self) -> Iter<'_, SampleData, SliceIter<'_, LongToken>> {
         self.refer_iter(self.sorted_sample_data_tokens.iter())
     }
 
-    pub fn scene_iter<'a>(&'a self) -> Iter<'a, SceneInternal, SliceIter<'a, LongToken>> {
+    pub fn scene_iter(&self) -> Iter<'_, SceneInternal, SliceIter<'_, LongToken>> {
         self.refer_iter(self.sorted_scene_tokens.iter())
     }
 
-    pub fn sensor_iter<'a>(&'a self) -> Iter<'a, Sensor, HashMapKeys<'a, LongToken, Sensor>> {
+    pub fn sensor_iter(&self) -> Iter<'_, Sensor, HashMapKeys<'_, LongToken, Sensor>> {
         self.refer_iter(self.sensor_map.keys())
     }
 
-    pub fn visibility_iter<'a>(
-        &'a self,
-    ) -> Iter<'a, Visibility, HashMapKeys<'a, String, Visibility>> {
+    pub fn visibility_iter(&self) -> Iter<'_, Visibility, HashMapKeys<'_, String, Visibility>> {
         self.refer_iter(self.visibility_map.keys())
     }
 
-    fn refer_iter<'a, Value, It>(&'a self, tokens_iter: It) -> Iter<'a, Value, It> {
+    fn refer_iter<Value, It>(&self, tokens_iter: It) -> Iter<'_, Value, It> {
         Iter {
             dataset: self,
             tokens_iter,
@@ -717,10 +713,10 @@ impl<'a, T> Deref for WithDataset<'a, T> {
     }
 }
 
-fn load_json<'de, T, P>(path: P) -> NuScenesDataResult<T>
+fn load_json<T, P>(path: P) -> NuScenesDataResult<T>
 where
     P: AsRef<Path>,
-    T: DeserializeOwned,
+    T: for<'a> Deserialize<'a>,
 {
     let reader = BufReader::new(File::open(path.as_ref())?);
     let value = serde_json::from_reader(reader).map_err(|err| {

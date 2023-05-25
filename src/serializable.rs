@@ -571,7 +571,7 @@ mod timestamp_serde {
         let timestamp_ns = (timestamp_us * 1000.0) as u64; // in ns
         let secs = timestamp_ns / 1_000_000_000;
         let nsecs = timestamp_ns % 1_000_000_000;
-        let datetime = NaiveDateTime::from_timestamp(secs as i64, nsecs as u32);
+        let datetime = NaiveDateTime::from_timestamp_opt(secs as i64, nsecs as u32).unwrap();
         Ok(datetime)
     }
 }
