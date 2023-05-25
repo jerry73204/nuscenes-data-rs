@@ -1,9 +1,19 @@
-// extern crate nuscenes_data;
+use clap::Parser;
 use nuscenes_data::{error::NuScenesDataResult, LoadedSampleData, NuScenesDataset};
+use std::path::PathBuf;
+
+#[derive(Parser)]
+struct Opts {
+    #[clap(long, default_value = "1.02")]
+    pub version: String,
+    pub data_dir: PathBuf,
+}
 
 fn main() -> NuScenesDataResult<()> {
+    let opts = Opts::parse();
+
     // Change the path to your dataset directory
-    let dataset = NuScenesDataset::load("1.02", "/some/path/v1.02-train")?;
+    let dataset = NuScenesDataset::load(&opts.version, &opts.data_dir)?;
 
     // Iterate over scenes chronologically
     for scene in dataset.scene_iter() {
