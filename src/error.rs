@@ -1,22 +1,21 @@
-use failure::Fail;
 use image::ImageError;
 use std::{io::Error as IoError, path::PathBuf};
 
 pub type NuScenesDataResult<T> = Result<T, NuScenesDataError>;
 
-#[derive(Debug, Fail)]
+#[derive(Debug, thiserror::Error)]
 pub enum NuScenesDataError {
-    #[fail(display = "internal error, please report bug")]
+    #[error("internal error, please report bug")]
     InternalBug,
-    #[fail(display = "corrupted file: {:?}", _0)]
+    #[error("corrupted file: {0:?}")]
     CorruptedFile(PathBuf),
-    #[fail(display = "corrupted file: {}", _0)]
+    #[error("corrupted file: {0}")]
     CorruptedDataset(String),
-    #[fail(display = "I/O error: {:?}", _0)]
+    #[error("I/O error: {0:?}")]
     IoError(IoError),
-    #[fail(display = "image error: {:?}", _0)]
+    #[error("image error: {0:?}")]
     ImageError(ImageError),
-    #[fail(display = "parseing error: {}", _0)]
+    #[error("parseing error: {0}")]
     ParseError(String),
 }
 
