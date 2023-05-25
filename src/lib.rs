@@ -1,5 +1,3 @@
-#![feature(backtrace)]
-
 pub mod base;
 pub mod error;
 pub mod impl_;
