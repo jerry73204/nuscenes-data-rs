@@ -43,7 +43,7 @@ impl TryFrom<&str> for LongToken {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ShortToken([u8; SHORT_TOKEN_LENGTH]);
 
 impl Display for ShortToken {
@@ -207,7 +207,7 @@ pub struct Visibility {
     pub description: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Modality {
     #[serde(rename = "camera")]
     Camera,
@@ -215,7 +215,7 @@ pub enum Modality {
     Lidar,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FileFormat {
     #[serde(rename = "bin")]
     Bin,
@@ -223,7 +223,7 @@ pub enum FileFormat {
     Jpeg,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum VisibilityLevel {
     #[serde(rename = "v0-40")]
     V0_40,
@@ -235,7 +235,7 @@ pub enum VisibilityLevel {
     V80_100,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Channel {
     #[serde(rename = "CAM_BACK")]
     CamBack,
