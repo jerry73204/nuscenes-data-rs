@@ -1,5 +1,4 @@
 // extern crate nuscenes_data;
-use image::GenericImageView;
 use nuscenes_data::{error::NuScenesDataResult, LoadedSampleData, NuScenesDataset};
 
 fn main() -> NuScenesDataResult<()> {
