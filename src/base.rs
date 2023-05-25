@@ -133,58 +133,54 @@ impl NuScenesDataset {
         };
 
         // index items by tokens
-        let attribute_map = attribute_list
+        let attribute_map: HashMap<LongToken, Attribute> = attribute_list
             .into_iter()
-            .map(|attribute| (attribute.token.clone(), attribute))
-            .collect::<HashMap<_, _>>();
-        let calibrated_sensor_map = calibrated_sensor_list
+            .map(|attribute| (attribute.token, attribute))
+            .collect();
+        let calibrated_sensor_map: HashMap<LongToken, CalibratedSensor> = calibrated_sensor_list
             .into_iter()
-            .map(|calibrated_sensor| (calibrated_sensor.token.clone(), calibrated_sensor))
-            .collect::<HashMap<_, _>>();
-        let category_map = category_list
+            .map(|calibrated_sensor| (calibrated_sensor.token, calibrated_sensor))
+            .collect();
+        let category_map: HashMap<LongToken, Category> = category_list
             .into_iter()
-            .map(|category| (category.token.clone(), category))
-            .collect::<HashMap<_, _>>();
-        let ego_pose_map = ego_pose_list
+            .map(|category| (category.token, category))
+            .collect();
+        let ego_pose_map: HashMap<LongToken, EgoPose> = ego_pose_list
             .into_iter()
-            .map(|ego_pos| (ego_pos.token.clone(), ego_pos))
-            .collect::<HashMap<_, _>>();
-        let instance_map = instance_list
+            .map(|ego_pos| (ego_pos.token, ego_pos))
+            .collect();
+        let instance_map: HashMap<LongToken, Instance> = instance_list
             .into_iter()
-            .map(|instance| (instance.token.clone(), instance))
-            .collect::<HashMap<_, _>>();
-        let log_map = log_list
+            .map(|instance| (instance.token, instance))
+            .collect();
+        let log_map: HashMap<LongToken, Log> =
+            log_list.into_iter().map(|log| (log.token, log)).collect();
+        let map_map: HashMap<ShortToken, Map> =
+            map_list.into_iter().map(|map| (map.token, map)).collect();
+        let sample_annotation_map: HashMap<LongToken, SampleAnnotation> = sample_annotation_list
             .into_iter()
-            .map(|log| (log.token.clone(), log))
-            .collect::<HashMap<_, _>>();
-        let map_map = map_list
+            .map(|sample| (sample.token, sample))
+            .collect();
+        let sample_data_map: HashMap<LongToken, SampleData> = sample_data_list
             .into_iter()
-            .map(|map| (map.token.clone(), map))
-            .collect::<HashMap<_, _>>();
-        let sample_annotation_map = sample_annotation_list
+            .map(|sample| (sample.token, sample))
+            .collect();
+        let sample_map: HashMap<LongToken, Sample> = sample_list
             .into_iter()
-            .map(|sample| (sample.token.clone(), sample))
-            .collect::<HashMap<_, _>>();
-        let sample_data_map = sample_data_list
+            .map(|sample| (sample.token, sample))
+            .collect();
+        let scene_map: HashMap<LongToken, Scene> = scene_list
             .into_iter()
-            .map(|sample| (sample.token.clone(), sample))
-            .collect::<HashMap<_, _>>();
-        let sample_map = sample_list
+            .map(|scene| (scene.token, scene))
+            .collect();
+        let sensor_map: HashMap<LongToken, Sensor> = sensor_list
             .into_iter()
-            .map(|sample| (sample.token.clone(), sample))
-            .collect::<HashMap<_, _>>();
-        let scene_map = scene_list
-            .into_iter()
-            .map(|scene| (scene.token.clone(), scene))
-            .collect::<HashMap<_, _>>();
-        let sensor_map = sensor_list
-            .into_iter()
-            .map(|sensor| (sensor.token.clone(), sensor))
-            .collect::<HashMap<_, _>>();
-        let visibility_map = visibility_list
+            .map(|sensor| (sensor.token, sensor))
+            .collect();
+        let visibility_map: HashMap<String, Visibility> = visibility_list
             .into_iter()
             .map(|visibility| (visibility.token.clone(), visibility))
-            .collect::<HashMap<_, _>>();
+            .collect();
 
         // check calibrated sensor integrity
         for (_, calibrated_sensor) in calibrated_sensor_map.iter() {
@@ -473,19 +469,14 @@ impl NuScenesDataset {
         let mut sample_to_annotation_groups = sample_annotation_map
             .iter()
             .map(|(sample_annotation_token, sample_annotation)| {
-                (
-                    sample_annotation.sample_token.clone(),
-                    sample_annotation_token.clone(),
-                )
+                (sample_annotation.sample_token, *sample_annotation_token)
             })
             .into_group_map();
 
         // keep track of relations from samples to sample data
         let mut sample_to_sample_data_groups = sample_data_map
             .iter()
-            .map(|(sample_data_token, sample_data)| {
-                (sample_data.sample_token.clone(), sample_data_token.clone())
-            })
+            .map(|(sample_data_token, sample_data)| (sample_data.sample_token, *sample_data_token))
             .into_group_map();
 
         // convert some types for ease of usage

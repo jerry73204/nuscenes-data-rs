@@ -3,7 +3,6 @@ use crate::{
     serializable::{Instance, LongToken, Sample, SampleAnnotation, Scene},
 };
 use chrono::NaiveDateTime;
-// use failure::{ensure, Fallible};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -63,18 +62,18 @@ impl InstanceInternal {
             last_annotation_token,
         } = instance;
 
-        let mut annotation_token_opt = Some(&first_annotation_token);
+        let mut annotation_token_opt = Some(first_annotation_token);
         let mut annotation_tokens = vec![];
 
         while let Some(annotation_token) = annotation_token_opt {
             let annotation = &sample_annotation_map
-                .get(annotation_token)
+                .get(&annotation_token)
                 .ok_or(NuScenesDataError::InternalBug)?;
-            if annotation_token != &annotation.token {
+            if annotation_token != annotation.token {
                 return Err(NuScenesDataError::InternalBug);
             }
-            annotation_tokens.push(annotation_token.clone());
-            annotation_token_opt = annotation.next.as_ref();
+            annotation_tokens.push(annotation_token);
+            annotation_token_opt = annotation.next;
         }
 
         if annotation_tokens.len() != nbr_annotations {
@@ -127,15 +126,15 @@ impl SceneInternal {
         } = scene;
 
         let mut sample_tokens = vec![];
-        let mut sample_token_opt = Some(&first_sample_token);
+        let mut sample_token_opt = Some(first_sample_token);
 
         while let Some(sample_token) = sample_token_opt {
-            let sample = &sample_map[sample_token];
-            if &sample.token != sample_token {
+            let sample = &sample_map[&sample_token];
+            if sample.token != sample_token {
                 return Err(NuScenesDataError::InternalBug);
             }
-            sample_tokens.push(sample_token.clone());
-            sample_token_opt = sample.next.as_ref();
+            sample_tokens.push(sample_token);
+            sample_token_opt = sample.next;
         }
 
         if sample_tokens.len() != nbr_samples {
@@ -147,7 +146,7 @@ impl SceneInternal {
             );
             return Err(NuScenesDataError::CorruptedDataset(msg));
         }
-        if sample_tokens.last().unwrap() != &last_sample_token {
+        if *sample_tokens.last().unwrap() != last_sample_token {
             let msg = format!(
                 "the sample with token {} assures last_sample_token = {}, but in fact {}",
                 token,

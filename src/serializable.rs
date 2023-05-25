@@ -280,7 +280,7 @@ mod logfile_serde {
         {
             let value = match value {
                 "" => None,
-                path_str @ _ => Some(PathBuf::from(path_str)),
+                path_str => Some(PathBuf::from(path_str)),
             };
 
             Ok(value)
@@ -404,8 +404,7 @@ mod long_token_serde {
         where
             E: DeserializeError,
         {
-            LongToken::try_from(text)
-                .map_err(|_err| E::invalid_value(Unexpected::Str(&text), &self))
+            LongToken::try_from(text).map_err(|_err| E::invalid_value(Unexpected::Str(text), &self))
         }
     }
 
@@ -456,7 +455,7 @@ mod short_token_serde {
             E: DeserializeError,
         {
             ShortToken::try_from(text)
-                .map_err(|_err| E::invalid_value(Unexpected::Str(&text), &self))
+                .map_err(|_err| E::invalid_value(Unexpected::Str(text), &self))
         }
     }
 
