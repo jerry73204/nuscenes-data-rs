@@ -1,6 +1,6 @@
 [package]
 name = "nuscenes-data"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["jerry73204 <jerry73204@gmail.com>"]
 edition = "2021"
 description = "NuScenes dataset loader in Rust"
