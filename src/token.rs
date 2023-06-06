@@ -1,71 +1,62 @@
+use crate::error::NuScenesDataError;
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
+    str::FromStr,
 };
 
-use crate::error::NuScenesDataError;
-
-pub const LONG_TOKEN_LENGTH: usize = 32;
-pub const SHORT_TOKEN_LENGTH: usize = 16;
+pub const TOKEN_LENGTH: usize = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct LongToken(pub [u8; LONG_TOKEN_LENGTH]);
+pub struct Token(pub [u8; TOKEN_LENGTH]);
 
-impl Display for LongToken {
+impl Display for Token {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        let LongToken(bytes) = self;
+        let Token(bytes) = self;
         let text = hex::encode(bytes);
         write!(formatter, "{}", text)
     }
 }
 
-impl TryFrom<&str> for LongToken {
-    type Error = NuScenesDataError;
+impl FromStr for Token {
+    type Err = NuScenesDataError;
 
-    fn try_from(text: &str) -> Result<Self, Self::Error> {
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
         let bytes = hex::decode(text).map_err(|err| {
             NuScenesDataError::ParseError(format!("cannot decode token: {:?}", err))
         })?;
-        if bytes.len() != LONG_TOKEN_LENGTH {
+        if bytes.len() != TOKEN_LENGTH {
             let msg = format!(
                 "invalid length: expected length {}, but found {}",
-                LONG_TOKEN_LENGTH * 2,
+                TOKEN_LENGTH * 2,
                 text.len()
             );
             return Err(NuScenesDataError::ParseError(msg));
         }
-        let array = <[u8; LONG_TOKEN_LENGTH]>::try_from(bytes.as_slice()).unwrap();
-        Ok(LongToken(array))
+        let array = <[u8; TOKEN_LENGTH]>::try_from(bytes.as_slice()).unwrap();
+        Ok(Token(array))
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ShortToken(pub [u8; SHORT_TOKEN_LENGTH]);
-
-impl Display for ShortToken {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        let ShortToken(bytes) = self;
-        let text = hex::encode(bytes);
-        write!(formatter, "{}", text)
+impl Serialize for Token {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_string().serialize(serializer)
     }
 }
 
-impl TryFrom<&str> for ShortToken {
-    type Error = NuScenesDataError;
-
-    fn try_from(text: &str) -> Result<Self, Self::Error> {
-        let bytes = hex::decode(text).map_err(|err| {
-            NuScenesDataError::ParseError(format!("cannot decode token: {:?}", err))
-        })?;
-        if bytes.len() != SHORT_TOKEN_LENGTH {
-            let msg = format!(
-                "invalid length: expected length {}, but found {}",
-                SHORT_TOKEN_LENGTH * 2,
-                text.len()
-            );
-            return Err(NuScenesDataError::ParseError(msg));
-        }
-        let array = <[u8; SHORT_TOKEN_LENGTH]>::try_from(bytes.as_slice()).unwrap();
-        Ok(ShortToken(array))
+impl<'de> Deserialize<'de> for Token {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let text = String::deserialize(deserializer)?;
+        let token: Self = text
+            .parse()
+            .map_err(|err| D::Error::custom(format!("{err}")))?;
+        Ok(token)
     }
 }

@@ -1,27 +1,27 @@
 use crate::{
     error::{NuScenesDataError, NuScenesDataResult},
-    serializable::{Instance, Sample, SampleAnnotation, Scene},
-    token::LongToken,
+    token::Token,
+    types::{Instance, Sample, SampleAnnotation, Scene},
 };
 use chrono::NaiveDateTime;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct SampleInternal {
-    pub token: LongToken,
-    pub next: Option<LongToken>,
-    pub prev: Option<LongToken>,
+    pub token: Token,
+    pub next: Option<Token>,
+    pub prev: Option<Token>,
     pub timestamp: NaiveDateTime,
-    pub scene_token: LongToken,
-    pub annotation_tokens: Vec<LongToken>,
-    pub sample_data_tokens: Vec<LongToken>,
+    pub scene_token: Token,
+    pub annotation_tokens: Vec<Token>,
+    pub sample_data_tokens: Vec<Token>,
 }
 
 impl SampleInternal {
     pub fn from(
         sample: Sample,
-        annotation_tokens: Vec<LongToken>,
-        sample_data_tokens: Vec<LongToken>,
+        annotation_tokens: Vec<Token>,
+        sample_data_tokens: Vec<Token>,
     ) -> Self {
         let Sample {
             token,
@@ -45,15 +45,15 @@ impl SampleInternal {
 
 #[derive(Debug, Clone)]
 pub struct InstanceInternal {
-    pub token: LongToken,
-    pub category_token: LongToken,
-    pub annotation_tokens: Vec<LongToken>,
+    pub token: Token,
+    pub category_token: Token,
+    pub annotation_tokens: Vec<Token>,
 }
 
 impl InstanceInternal {
     pub fn from(
         instance: Instance,
-        sample_annotation_map: &HashMap<LongToken, SampleAnnotation>,
+        sample_annotation_map: &HashMap<Token, SampleAnnotation>,
     ) -> NuScenesDataResult<Self> {
         let Instance {
             token,
@@ -107,15 +107,15 @@ impl InstanceInternal {
 
 #[derive(Debug, Clone)]
 pub struct SceneInternal {
-    pub token: LongToken,
+    pub token: Token,
     pub name: String,
     pub description: String,
-    pub log_token: LongToken,
-    pub sample_tokens: Vec<LongToken>,
+    pub log_token: Token,
+    pub sample_tokens: Vec<Token>,
 }
 
 impl SceneInternal {
-    pub fn from(scene: Scene, sample_map: &HashMap<LongToken, Sample>) -> NuScenesDataResult<Self> {
+    pub fn from(scene: Scene, sample_map: &HashMap<Token, Sample>) -> NuScenesDataResult<Self> {
         let Scene {
             token,
             name,

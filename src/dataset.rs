@@ -1,51 +1,49 @@
 use crate::{
     error::{NuScenesDataError, NuScenesDataResult},
-    iter::Iter,
     parsed::{InstanceInternal, SampleInternal, SceneInternal},
-    serializable::{
+    token::Token,
+    types::{
         Attribute, CalibratedSensor, Category, EgoPose, Instance, Log, Map, Sample,
         SampleAnnotation, SampleData, Scene, Sensor, Visibility,
     },
-    token::{LongToken, ShortToken},
 };
 
+use chrono::NaiveDateTime;
 use image::DynamicImage;
 use itertools::Itertools;
 use nalgebra::MatrixXx5;
 use serde::Deserialize;
 use std::{
-    collections::{hash_map::Keys as HashMapKeys, HashMap},
+    collections::HashMap,
     fs::File,
     io::BufReader,
-    marker::PhantomData,
-    ops::Deref,
     path::{Path, PathBuf},
-    slice::Iter as SliceIter,
+    time::Instant,
 };
 
 pub type PointCloudMatrix = MatrixXx5<f32>;
 
 #[derive(Debug, Clone)]
 pub struct NuScenesDataset {
-    pub(crate) version: String,
-    pub(crate) dataset_dir: PathBuf,
-    pub(crate) attribute_map: HashMap<LongToken, Attribute>,
-    pub(crate) calibrated_sensor_map: HashMap<LongToken, CalibratedSensor>,
-    pub(crate) category_map: HashMap<LongToken, Category>,
-    pub(crate) ego_pose_map: HashMap<LongToken, EgoPose>,
-    pub(crate) instance_map: HashMap<LongToken, InstanceInternal>,
-    pub(crate) log_map: HashMap<LongToken, Log>,
-    pub(crate) map_map: HashMap<ShortToken, Map>,
-    pub(crate) scene_map: HashMap<LongToken, SceneInternal>,
-    pub(crate) sample_map: HashMap<LongToken, SampleInternal>,
-    pub(crate) sample_annotation_map: HashMap<LongToken, SampleAnnotation>,
-    pub(crate) sample_data_map: HashMap<LongToken, SampleData>,
-    pub(crate) sensor_map: HashMap<LongToken, Sensor>,
-    pub(crate) visibility_map: HashMap<String, Visibility>,
-    pub(crate) sorted_ego_pose_tokens: Vec<LongToken>,
-    pub(crate) sorted_sample_tokens: Vec<LongToken>,
-    pub(crate) sorted_sample_data_tokens: Vec<LongToken>,
-    pub(crate) sorted_scene_tokens: Vec<LongToken>,
+    pub version: String,
+    pub dataset_dir: PathBuf,
+    pub attribute: HashMap<Token, Attribute>,
+    pub calibrated_sensor: HashMap<Token, CalibratedSensor>,
+    pub category: HashMap<Token, Category>,
+    pub ego_pose: HashMap<Token, EgoPose>,
+    pub instance: HashMap<Token, InstanceInternal>,
+    pub log: HashMap<Token, Log>,
+    pub map: HashMap<Token, Map>,
+    pub scene: HashMap<Token, SceneInternal>,
+    pub sample: HashMap<Token, SampleInternal>,
+    pub sample_annotation: HashMap<Token, SampleAnnotation>,
+    pub sample_data: HashMap<Token, SampleData>,
+    pub sensor: HashMap<Token, Sensor>,
+    pub visibility: HashMap<String, Visibility>,
+    pub sorted_ego_pose_tokens: Vec<Token>,
+    pub sorted_sample_tokens: Vec<Token>,
+    pub sorted_sample_data_tokens: Vec<Token>,
+    pub sorted_scene_tokens: Vec<Token>,
 }
 
 impl NuScenesDataset {
@@ -69,17 +67,16 @@ impl NuScenesDataset {
     ///     OK(())
     /// }
     /// ```
-    pub fn load<S, P>(version: S, dir: P) -> NuScenesDataResult<Self>
+    pub fn load<P>(version: &str, dir: P) -> NuScenesDataResult<Self>
     where
-        S: AsRef<str>,
         P: AsRef<Path>,
     {
         let dataset_dir = dir.as_ref();
 
-        let meta_dir_name = format!("v{}-train", version.as_ref());
+        let meta_dir_name = version;
         let meta_dir = dataset_dir.join(meta_dir_name);
 
-        // load JSON files
+        let since = Instant::now();
         let attribute_list: Vec<Attribute> = {
             let attribute_path = meta_dir.join("attribute.json");
             load_json(attribute_path)?
@@ -132,49 +129,50 @@ impl NuScenesDataset {
             let visibility_path = meta_dir.join("visibility.json");
             load_json(visibility_path)?
         };
+        dbg!(since.elapsed());
 
         // index items by tokens
-        let attribute_map: HashMap<LongToken, Attribute> = attribute_list
+        let attribute_map: HashMap<Token, Attribute> = attribute_list
             .into_iter()
             .map(|attribute| (attribute.token, attribute))
             .collect();
-        let calibrated_sensor_map: HashMap<LongToken, CalibratedSensor> = calibrated_sensor_list
+        let calibrated_sensor_map: HashMap<Token, CalibratedSensor> = calibrated_sensor_list
             .into_iter()
             .map(|calibrated_sensor| (calibrated_sensor.token, calibrated_sensor))
             .collect();
-        let category_map: HashMap<LongToken, Category> = category_list
+        let category_map: HashMap<Token, Category> = category_list
             .into_iter()
             .map(|category| (category.token, category))
             .collect();
-        let ego_pose_map: HashMap<LongToken, EgoPose> = ego_pose_list
+        let ego_pose_map: HashMap<Token, EgoPose> = ego_pose_list
             .into_iter()
             .map(|ego_pos| (ego_pos.token, ego_pos))
             .collect();
-        let instance_map: HashMap<LongToken, Instance> = instance_list
+        let instance_map: HashMap<Token, Instance> = instance_list
             .into_iter()
             .map(|instance| (instance.token, instance))
             .collect();
-        let log_map: HashMap<LongToken, Log> =
+        let log_map: HashMap<Token, Log> =
             log_list.into_iter().map(|log| (log.token, log)).collect();
-        let map_map: HashMap<ShortToken, Map> =
+        let map_map: HashMap<Token, Map> =
             map_list.into_iter().map(|map| (map.token, map)).collect();
-        let sample_annotation_map: HashMap<LongToken, SampleAnnotation> = sample_annotation_list
+        let sample_annotation_map: HashMap<Token, SampleAnnotation> = sample_annotation_list
             .into_iter()
             .map(|sample| (sample.token, sample))
             .collect();
-        let sample_data_map: HashMap<LongToken, SampleData> = sample_data_list
+        let sample_data_map: HashMap<Token, SampleData> = sample_data_list
             .into_iter()
             .map(|sample| (sample.token, sample))
             .collect();
-        let sample_map: HashMap<LongToken, Sample> = sample_list
+        let sample_map: HashMap<Token, Sample> = sample_list
             .into_iter()
             .map(|sample| (sample.token, sample))
             .collect();
-        let scene_map: HashMap<LongToken, Scene> = scene_list
+        let scene_map: HashMap<Token, Scene> = scene_list
             .into_iter()
             .map(|scene| (scene.token, scene))
             .collect();
-        let sensor_map: HashMap<LongToken, Sensor> = sensor_list
+        let sensor_map: HashMap<Token, Sensor> = sensor_list
             .into_iter()
             .map(|sensor| (sensor.token, sensor))
             .collect();
@@ -512,49 +510,40 @@ impl NuScenesDataset {
             .collect::<NuScenesDataResult<HashMap<_, _>>>()?;
 
         // sort ego_pose by timestamp
-        let sorted_ego_pose_tokens = {
-            let mut sorted_pairs = ego_pose_map
+        let sorted_ego_pose_tokens: Vec<_> = {
+            let mut sorted_pairs: Vec<(&Token, NaiveDateTime)> = ego_pose_map
                 .iter()
                 .map(|(sample_token, sample)| (sample_token, sample.timestamp))
-                .collect::<Vec<_>>();
-            sorted_pairs.sort_by_cached_key(|(_, timestamp)| timestamp.clone());
+                .collect();
+            sorted_pairs.sort_by_cached_key(|(_, timestamp)| *timestamp);
 
-            sorted_pairs
-                .into_iter()
-                .map(|(token, _)| token.clone())
-                .collect::<Vec<_>>()
+            sorted_pairs.into_iter().map(|(token, _)| *token).collect()
         };
 
         // sort samples by timestamp
-        let sorted_sample_tokens = {
-            let mut sorted_pairs = sample_internal_map
+        let sorted_sample_tokens: Vec<_> = {
+            let mut sorted_pairs: Vec<(&Token, NaiveDateTime)> = sample_internal_map
                 .iter()
                 .map(|(sample_token, sample)| (sample_token, sample.timestamp))
-                .collect::<Vec<_>>();
-            sorted_pairs.sort_by_cached_key(|(_, timestamp)| timestamp.clone());
+                .collect();
+            sorted_pairs.sort_by_cached_key(|(_, timestamp)| *timestamp);
 
-            sorted_pairs
-                .into_iter()
-                .map(|(token, _)| token.clone())
-                .collect::<Vec<_>>()
+            sorted_pairs.into_iter().map(|(token, _)| *token).collect()
         };
 
         // sort sample data by timestamp
-        let sorted_sample_data_tokens = {
-            let mut sorted_pairs = sample_data_map
+        let sorted_sample_data_tokens: Vec<_> = {
+            let mut sorted_pairs: Vec<(&Token, NaiveDateTime)> = sample_data_map
                 .iter()
                 .map(|(sample_token, sample)| (sample_token, sample.timestamp))
-                .collect::<Vec<_>>();
-            sorted_pairs.sort_by_cached_key(|(_, timestamp)| timestamp.clone());
+                .collect();
+            sorted_pairs.sort_by_cached_key(|(_, timestamp)| *timestamp);
 
-            sorted_pairs
-                .into_iter()
-                .map(|(token, _)| token.clone())
-                .collect::<Vec<_>>()
+            sorted_pairs.into_iter().map(|(token, _)| *token).collect()
         };
 
         // sort scenes by timestamp
-        let sorted_scene_tokens = {
+        let sorted_scene_tokens: Vec<_> = {
             let mut sorted_pairs = scene_internal_map
                 .iter()
                 .map(|(scene_token, scene)| {
@@ -563,7 +552,7 @@ impl NuScenesDataset {
                         .iter()
                         .map(|sample_token| {
                             let sample = sample_internal_map
-                                .get(&sample_token)
+                                .get(sample_token)
                                 .ok_or(NuScenesDataError::InternalBug)?;
                             Ok(sample.timestamp)
                         })
@@ -575,31 +564,28 @@ impl NuScenesDataset {
                     Ok((scene_token, timestamp))
                 })
                 .collect::<NuScenesDataResult<Vec<_>>>()?;
-            sorted_pairs.sort_by_cached_key(|(_, timestamp)| timestamp.clone());
+            sorted_pairs.sort_by_cached_key(|(_, timestamp)| *timestamp);
 
-            sorted_pairs
-                .into_iter()
-                .map(|(token, _)| token.clone())
-                .collect::<Vec<_>>()
+            sorted_pairs.into_iter().map(|(token, _)| *token).collect()
         };
 
         // construct result
         let ret = Self {
-            version: version.as_ref().to_owned(),
+            version: version.to_string(),
             dataset_dir: dataset_dir.to_owned(),
-            attribute_map,
-            calibrated_sensor_map,
-            category_map,
-            ego_pose_map,
-            instance_map: instance_internal_map,
-            log_map,
-            map_map,
-            sample_map: sample_internal_map,
-            sample_annotation_map,
-            sample_data_map,
-            scene_map: scene_internal_map,
-            sensor_map,
-            visibility_map,
+            attribute: attribute_map,
+            calibrated_sensor: calibrated_sensor_map,
+            category: category_map,
+            ego_pose: ego_pose_map,
+            instance: instance_internal_map,
+            log: log_map,
+            map: map_map,
+            sample: sample_internal_map,
+            sample_annotation: sample_annotation_map,
+            sample_data: sample_data_map,
+            scene: scene_internal_map,
+            sensor: sensor_map,
+            visibility: visibility_map,
             sorted_ego_pose_tokens,
             sorted_scene_tokens,
             sorted_sample_tokens,
@@ -608,110 +594,12 @@ impl NuScenesDataset {
 
         Ok(ret)
     }
-
-    pub fn attribute_iter(&self) -> Iter<'_, Attribute, HashMapKeys<'_, LongToken, Attribute>> {
-        self.refer_iter(self.attribute_map.keys())
-    }
-
-    pub fn calibrated_sensor_iter(
-        &self,
-    ) -> Iter<'_, CalibratedSensor, HashMapKeys<'_, LongToken, CalibratedSensor>> {
-        self.refer_iter(self.calibrated_sensor_map.keys())
-    }
-
-    pub fn category_iter(&self) -> Iter<'_, Category, HashMapKeys<'_, LongToken, Category>> {
-        self.refer_iter(self.category_map.keys())
-    }
-
-    pub fn ego_pose_iter(&self) -> Iter<'_, EgoPose, SliceIter<'_, LongToken>> {
-        self.refer_iter(self.sorted_ego_pose_tokens.iter())
-    }
-
-    pub fn instance_iter(
-        &self,
-    ) -> Iter<'_, Instance, HashMapKeys<'_, LongToken, InstanceInternal>> {
-        self.refer_iter(self.instance_map.keys())
-    }
-
-    pub fn log_iter(&self) -> Iter<'_, Log, HashMapKeys<'_, LongToken, Log>> {
-        self.refer_iter(self.log_map.keys())
-    }
-
-    pub fn map_iter(&self) -> Iter<'_, Map, HashMapKeys<'_, ShortToken, Map>> {
-        self.refer_iter(self.map_map.keys())
-    }
-
-    pub fn sample_iter(&self) -> Iter<'_, SampleInternal, SliceIter<'_, LongToken>> {
-        self.refer_iter(self.sorted_sample_tokens.iter())
-    }
-
-    pub fn sample_annotation_iter(
-        &self,
-    ) -> Iter<'_, SampleAnnotation, HashMapKeys<'_, LongToken, SampleAnnotation>> {
-        self.refer_iter(self.sample_annotation_map.keys())
-    }
-
-    pub fn sample_data_iter(&self) -> Iter<'_, SampleData, SliceIter<'_, LongToken>> {
-        self.refer_iter(self.sorted_sample_data_tokens.iter())
-    }
-
-    pub fn scene_iter(&self) -> Iter<'_, SceneInternal, SliceIter<'_, LongToken>> {
-        self.refer_iter(self.sorted_scene_tokens.iter())
-    }
-
-    pub fn sensor_iter(&self) -> Iter<'_, Sensor, HashMapKeys<'_, LongToken, Sensor>> {
-        self.refer_iter(self.sensor_map.keys())
-    }
-
-    pub fn visibility_iter(&self) -> Iter<'_, Visibility, HashMapKeys<'_, String, Visibility>> {
-        self.refer_iter(self.visibility_map.keys())
-    }
-
-    fn refer_iter<Value, It>(&self, tokens_iter: It) -> Iter<'_, Value, It> {
-        Iter {
-            dataset: self,
-            tokens_iter,
-            _phantom: PhantomData,
-        }
-    }
 }
 
 #[derive(Clone)]
 pub enum LoadedSampleData {
     PointCloud(PointCloudMatrix),
     Image(DynamicImage),
-}
-
-/// A wrapper struct that wraps around a base type with a reference to dataset.
-#[derive(Debug, Clone)]
-pub struct WithDataset<'a, T> {
-    pub(crate) dataset: &'a NuScenesDataset,
-    pub(crate) inner: &'a T,
-}
-
-impl<'a, T> WithDataset<'a, T> {
-    pub(crate) fn refer<S>(&self, referred: &'a S) -> WithDataset<'a, S> {
-        WithDataset {
-            dataset: self.dataset,
-            inner: referred,
-        }
-    }
-
-    pub(crate) fn refer_iter<Value, It>(&self, tokens_iter: It) -> Iter<'a, Value, It> {
-        Iter {
-            dataset: self.dataset,
-            tokens_iter,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<'a, T> Deref for WithDataset<'a, T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        self.inner
-    }
 }
 
 fn load_json<T, P>(path: P) -> NuScenesDataResult<T>

@@ -1,55 +1,53 @@
-use crate::token::{LongToken, ShortToken};
+use crate::token::Token;
 use chrono::naive::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-pub type CameraIntrinsic = Option<[[f64; 3]; 3]>;
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Attribute {
-    pub token: LongToken,
+    pub token: Token,
     pub description: String,
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalibratedSensor {
-    pub token: LongToken,
-    pub sensor_token: LongToken,
+    pub token: Token,
+    pub sensor_token: Token,
     pub rotation: [f64; 4],
     #[serde(with = "camera_intrinsic_serde")]
-    pub camera_intrinsic: CameraIntrinsic,
+    pub camera_intrinsic: Option<[[f64; 3]; 3]>,
     pub translation: [f64; 3],
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Category {
-    pub token: LongToken,
+    pub token: Token,
     pub description: String,
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EgoPose {
-    pub token: LongToken,
+    pub token: Token,
     #[serde(with = "timestamp_serde")]
     pub timestamp: NaiveDateTime,
     pub rotation: [f64; 4],
     pub translation: [f64; 3],
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Instance {
-    pub token: LongToken,
+    pub token: Token,
     pub nbr_annotations: usize,
-    pub category_token: LongToken,
-    pub first_annotation_token: LongToken,
-    pub last_annotation_token: LongToken,
+    pub category_token: Token,
+    pub first_annotation_token: Token,
+    pub last_annotation_token: Token,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Log {
-    pub token: LongToken,
+    pub token: Token,
     pub date_captured: NaiveDate,
     pub location: String,
     pub vehicle: String,
@@ -57,133 +55,127 @@ pub struct Log {
     pub logfile: Option<PathBuf>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Map {
-    pub token: ShortToken,
-    pub log_tokens: Vec<LongToken>,
+    pub token: Token,
+    pub log_tokens: Vec<Token>,
     pub filename: PathBuf,
     pub category: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sample {
-    pub token: LongToken,
-    #[serde(with = "opt_long_token_serde")]
-    pub next: Option<LongToken>,
-    #[serde(with = "opt_long_token_serde")]
-    pub prev: Option<LongToken>,
-    pub scene_token: LongToken,
+    pub token: Token,
+    #[serde(with = "opt_short_token_serde")]
+    pub next: Option<Token>,
+    #[serde(with = "opt_short_token_serde")]
+    pub prev: Option<Token>,
+    pub scene_token: Token,
     #[serde(with = "timestamp_serde")]
     pub timestamp: NaiveDateTime,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SampleAnnotation {
-    pub token: LongToken,
+    pub token: Token,
     pub num_lidar_pts: isize,
     pub num_radar_pts: isize,
     pub size: [f64; 3],
     pub rotation: [f64; 4],
     pub translation: [f64; 3],
-    pub sample_token: LongToken,
-    pub instance_token: LongToken,
-    pub attribute_tokens: Vec<LongToken>,
+    pub sample_token: Token,
+    pub instance_token: Token,
+    pub attribute_tokens: Vec<Token>,
     #[serde(with = "opt_string_serde")]
     pub visibility_token: Option<String>,
-    #[serde(with = "opt_long_token_serde")]
-    pub prev: Option<LongToken>,
-    #[serde(with = "opt_long_token_serde")]
-    pub next: Option<LongToken>,
+    #[serde(with = "opt_short_token_serde")]
+    pub prev: Option<Token>,
+    #[serde(with = "opt_short_token_serde")]
+    pub next: Option<Token>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SampleData {
-    pub token: LongToken,
+    pub token: Token,
     pub fileformat: FileFormat,
     pub is_key_frame: bool,
     pub filename: PathBuf,
     #[serde(with = "timestamp_serde")]
     pub timestamp: NaiveDateTime,
-    pub sample_token: LongToken,
-    pub ego_pose_token: LongToken,
-    pub calibrated_sensor_token: LongToken,
-    #[serde(with = "opt_long_token_serde")]
-    pub prev: Option<LongToken>,
-    #[serde(with = "opt_long_token_serde")]
-    pub next: Option<LongToken>,
+    pub sample_token: Token,
+    pub ego_pose_token: Token,
+    pub calibrated_sensor_token: Token,
+    #[serde(with = "opt_short_token_serde")]
+    pub prev: Option<Token>,
+    #[serde(with = "opt_short_token_serde")]
+    pub next: Option<Token>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Scene {
-    pub token: LongToken,
+    pub token: Token,
     pub name: String,
     pub description: String,
-    pub log_token: LongToken,
+    pub log_token: Token,
     pub nbr_samples: usize,
-    pub first_sample_token: LongToken,
-    pub last_sample_token: LongToken,
+    pub first_sample_token: Token,
+    pub last_sample_token: Token,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sensor {
-    pub token: LongToken,
+    pub token: Token,
     pub modality: Modality,
     pub channel: Channel,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Visibility {
     pub token: String,
     pub level: VisibilityLevel,
     pub description: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
 pub enum Modality {
-    #[serde(rename = "camera")]
     Camera,
-    #[serde(rename = "lidar")]
     Lidar,
+    Radar,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
 pub enum FileFormat {
-    #[serde(rename = "bin")]
-    Bin,
-    #[serde(rename = "jpeg")]
-    Jpeg,
+    Pcd,
+    Jpg,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq, Hash)]
+#[serde(rename_all = "kebab-case")]
 pub enum VisibilityLevel {
-    #[serde(rename = "v0-40")]
     V0_40,
-    #[serde(rename = "v40-60")]
     V40_60,
-    #[serde(rename = "v60-80")]
     V60_80,
-    #[serde(rename = "v80-100")]
     V80_100,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq, Hash)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Channel {
-    #[serde(rename = "CAM_BACK")]
     CamBack,
-    #[serde(rename = "CAM_BACK_LEFT")]
     CamBackLeft,
-    #[serde(rename = "CAM_BACK_RIGHT")]
     CamBackRight,
-    #[serde(rename = "CAM_FRONT")]
     CamFront,
-    #[serde(rename = "CAM_FRONT_LEFT")]
     CamFrontLeft,
-    #[serde(rename = "CAM_FRONT_RIGHT")]
     CamFrontRight,
-    #[serde(rename = "CAM_FRONT_ZOOMED")]
     CamFrontZoomed,
-    #[serde(rename = "LIDAR_TOP")]
     LidarTop,
+    RadarFront,
+    RadarFrontLeft,
+    RadarFrontRight,
+    RadarBackLeft,
+    RadarBackRight,
 }
 
 mod logfile_serde {
@@ -238,7 +230,6 @@ mod logfile_serde {
 }
 
 mod camera_intrinsic_serde {
-    use super::CameraIntrinsic;
     use serde::{
         de::{Error as DeserializeError, SeqAccess, Visitor},
         ser::SerializeSeq,
@@ -249,7 +240,7 @@ mod camera_intrinsic_serde {
     struct CameraIntrinsicVisitor;
 
     impl<'de> Visitor<'de> for CameraIntrinsicVisitor {
-        type Value = CameraIntrinsic;
+        type Value = Option<[[f64; 3]; 3]>;
 
         fn expecting(&self, formatter: &mut Formatter) -> FormatResult {
             formatter.write_str("an empty array or a 3x3 two-dimensional array")
@@ -262,9 +253,9 @@ mod camera_intrinsic_serde {
             let mut matrix = [[0.0; 3]; 3];
             let mut length = 0;
 
-            for ind in 0..3 {
+            for row_ref in &mut matrix {
                 if let Some(row) = seq.next_element::<[f64; 3]>()? {
-                    matrix[ind] = row;
+                    *row_ref = row;
                     length += 1;
                 } else {
                     break;
@@ -283,15 +274,15 @@ mod camera_intrinsic_serde {
         }
     }
 
-    pub fn serialize<S>(value: &CameraIntrinsic, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(value: &Option<[[f64; 3]; 3]>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         match value {
             Some(matrix) => {
                 let mut seq = serializer.serialize_seq(Some(3))?;
-                for ind in 0..3 {
-                    seq.serialize_element(&matrix[ind])?;
+                for row in matrix {
+                    seq.serialize_element(row)?;
                 }
                 seq.end()
             }
@@ -302,7 +293,7 @@ mod camera_intrinsic_serde {
         }
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<CameraIntrinsic, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<[[f64; 3]; 3]>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -311,116 +302,15 @@ mod camera_intrinsic_serde {
     }
 }
 
-mod long_token_serde {
-    use crate::token::LongToken;
-    use serde::{
-        de::{Error as DeserializeError, Unexpected, Visitor},
-        Deserialize, Deserializer, Serialize, Serializer,
-    };
-    use std::{
-        convert::TryFrom,
-        fmt::{Formatter, Result as FormatResult},
-    };
-
-    struct LongTokenVisitor;
-
-    impl<'de> Visitor<'de> for LongTokenVisitor {
-        type Value = LongToken;
-
-        fn expecting(&self, formatter: &mut Formatter) -> FormatResult {
-            formatter.write_str("a hex string with 64 characters")
-        }
-
-        fn visit_str<E>(self, text: &str) -> Result<Self::Value, E>
-        where
-            E: DeserializeError,
-        {
-            LongToken::try_from(text).map_err(|_err| E::invalid_value(Unexpected::Str(text), &self))
-        }
-    }
-
-    impl Serialize for LongToken {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            let LongToken(bytes) = self;
-            let text = hex::encode(bytes);
-            serializer.serialize_str(&text)
-        }
-    }
-
-    impl<'de> Deserialize<'de> for LongToken {
-        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let token = deserializer.deserialize_string(LongTokenVisitor)?;
-            Ok(token)
-        }
-    }
-}
-
-mod short_token_serde {
-    use crate::token::ShortToken;
-    use serde::{
-        de::{Error as DeserializeError, Unexpected, Visitor},
-        Deserialize, Deserializer, Serialize, Serializer,
-    };
-    use std::{
-        convert::TryFrom,
-        fmt::{Formatter, Result as FormatResult},
-    };
-
-    struct ShortTokenVisitor;
-
-    impl<'de> Visitor<'de> for ShortTokenVisitor {
-        type Value = ShortToken;
-
-        fn expecting(&self, formatter: &mut Formatter) -> FormatResult {
-            formatter.write_str("a hex string with 64 characters")
-        }
-
-        fn visit_str<E>(self, text: &str) -> Result<Self::Value, E>
-        where
-            E: DeserializeError,
-        {
-            ShortToken::try_from(text)
-                .map_err(|_err| E::invalid_value(Unexpected::Str(text), &self))
-        }
-    }
-
-    impl Serialize for ShortToken {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            let ShortToken(bytes) = self;
-            let text = hex::encode(bytes);
-            serializer.serialize_str(&text)
-        }
-    }
-
-    impl<'de> Deserialize<'de> for ShortToken {
-        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let token = deserializer.deserialize_string(ShortTokenVisitor)?;
-            Ok(token)
-        }
-    }
-}
-
-mod opt_long_token_serde {
-    use crate::token::LongToken;
+mod opt_short_token_serde {
+    use crate::token::{Token, TOKEN_LENGTH};
     use serde::{
         de::{Error as DeserializeError, Unexpected},
         Deserialize, Deserializer, Serialize, Serializer,
     };
-    use std::convert::TryFrom;
+    use std::str::FromStr;
 
-    pub fn serialize<S>(value: &Option<LongToken>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(value: &Option<Token>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -430,24 +320,26 @@ mod opt_long_token_serde {
         }
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<LongToken>, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Token>, D::Error>
     where
         D: Deserializer<'de>,
     {
-        // let value = deserializer.deserialize_any(OptionLongTokenVisitor)?;
         let text = String::deserialize(deserializer)?;
 
-        let value = match text.len() {
-            0 => None,
-            _ => {
-                let token = LongToken::try_from(text.as_str()).map_err(|_err| {
-                    D::Error::invalid_value(
-                        Unexpected::Str(&text),
-                        &"an empty string or a hex string with 64 characters",
+        let value = if text.is_empty() {
+            None
+        } else {
+            let token = Token::from_str(text.as_str()).map_err(|_err| {
+                D::Error::invalid_value(
+                    Unexpected::Str(&text),
+                    &format!(
+                        "an empty string or a hex string with {} characters",
+                        TOKEN_LENGTH * 2
                     )
-                })?;
-                Some(token)
-            }
+                    .as_str(),
+                )
+            })?;
+            Some(token)
         };
 
         Ok(value)

@@ -1,9 +1,8 @@
-pub mod base;
+mod dataset;
 pub mod error;
-pub mod impl_;
-pub mod iter;
-pub mod parsed;
-pub mod serializable;
+mod parsed;
 pub mod token;
+pub mod types;
 
-pub use base::{LoadedSampleData, NuScenesDataset};
+pub use dataset::{LoadedSampleData, NuScenesDataset};
+pub use token::Token;
