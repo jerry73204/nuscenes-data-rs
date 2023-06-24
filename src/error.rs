@@ -1,10 +1,9 @@
-use image::ImageError;
-use std::{io::Error as IoError, path::PathBuf};
+use std::{io, path::PathBuf};
 
-pub type NuScenesDataResult<T> = Result<T, NuScenesDataError>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
-pub enum NuScenesDataError {
+pub enum Error {
     #[error("internal error, please report bug")]
     InternalBug,
     #[error("corrupted file: {0:?}")]
@@ -12,24 +11,21 @@ pub enum NuScenesDataError {
     #[error("corrupted file: {0}")]
     CorruptedDataset(String),
     #[error("I/O error: {0:?}")]
-    IoError(IoError),
+    IoError(io::Error),
     #[error("image error: {0:?}")]
-    ImageError(ImageError),
+    ImageError(image::ImageError),
     #[error("parseing error: {0}")]
     ParseError(String),
 }
 
-impl From<IoError> for NuScenesDataError {
-    fn from(error: IoError) -> Self {
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
         Self::IoError(error)
     }
 }
 
-impl From<ImageError> for NuScenesDataError {
-    fn from(error: ImageError) -> Self {
-        match error {
-            ImageError::IoError(io_err) => Self::IoError(io_err),
-            _ => Self::ImageError(error),
-        }
+impl From<image::ImageError> for Error {
+    fn from(error: image::ImageError) -> Self {
+        Self::ImageError(error)
     }
 }

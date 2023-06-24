@@ -1,5 +1,5 @@
 use clap::Parser;
-use nuscenes_data::{error::NuScenesDataResult, LoadedSampleData, NuScenesDataset};
+use nuscenes_data::{error::Result, Dataset};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -8,11 +8,11 @@ struct Opts {
     pub data_dir: PathBuf,
 }
 
-fn main() -> NuScenesDataResult<()> {
+fn main() -> Result<()> {
     let opts = Opts::parse();
 
     // Change the path to your dataset directory
-    let dataset = NuScenesDataset::load(&opts.version, &opts.data_dir)?;
+    let dataset = Dataset::load(&opts.version, &opts.data_dir)?;
 
     // Iterate over scenes chronologically
     for scene in dataset.scene.values() {

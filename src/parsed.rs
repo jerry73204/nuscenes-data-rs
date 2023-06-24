@@ -1,5 +1,5 @@
 use crate::{
-    error::{NuScenesDataError, NuScenesDataResult},
+    error::{Error, Result},
     token::Token,
     types::{Instance, Sample, SampleAnnotation, Scene},
 };
@@ -54,7 +54,7 @@ impl InstanceInternal {
     pub fn from(
         instance: Instance,
         sample_annotation_map: &HashMap<Token, SampleAnnotation>,
-    ) -> NuScenesDataResult<Self> {
+    ) -> Result<Self> {
         let Instance {
             token,
             nbr_annotations,
@@ -69,9 +69,9 @@ impl InstanceInternal {
         while let Some(annotation_token) = annotation_token_opt {
             let annotation = &sample_annotation_map
                 .get(&annotation_token)
-                .ok_or(NuScenesDataError::InternalBug)?;
+                .ok_or(Error::InternalBug)?;
             if annotation_token != annotation.token {
-                return Err(NuScenesDataError::InternalBug);
+                return Err(Error::InternalBug);
             }
             annotation_tokens.push(annotation_token);
             annotation_token_opt = annotation.next;
@@ -84,7 +84,7 @@ impl InstanceInternal {
                 nbr_annotations,
                 annotation_tokens.len()
             );
-            return Err(NuScenesDataError::CorruptedDataset(msg));
+            return Err(Error::CorruptedDataset(msg));
         }
         if annotation_tokens.last().unwrap() != &last_annotation_token {
             let msg = format!(
@@ -93,7 +93,7 @@ impl InstanceInternal {
                 last_annotation_token,
                 annotation_tokens.last().unwrap()
             );
-            return Err(NuScenesDataError::CorruptedDataset(msg));
+            return Err(Error::CorruptedDataset(msg));
         }
 
         let ret = Self {
@@ -115,7 +115,7 @@ pub struct SceneInternal {
 }
 
 impl SceneInternal {
-    pub fn from(scene: Scene, sample_map: &HashMap<Token, Sample>) -> NuScenesDataResult<Self> {
+    pub fn from(scene: Scene, sample_map: &HashMap<Token, Sample>) -> Result<Self> {
         let Scene {
             token,
             name,
@@ -132,7 +132,7 @@ impl SceneInternal {
         while let Some(sample_token) = sample_token_opt {
             let sample = &sample_map[&sample_token];
             if sample.token != sample_token {
-                return Err(NuScenesDataError::InternalBug);
+                return Err(Error::InternalBug);
             }
             sample_tokens.push(sample_token);
             sample_token_opt = sample.next;
@@ -145,7 +145,7 @@ impl SceneInternal {
                 nbr_samples,
                 sample_tokens.len()
             );
-            return Err(NuScenesDataError::CorruptedDataset(msg));
+            return Err(Error::CorruptedDataset(msg));
         }
         if *sample_tokens.last().unwrap() != last_sample_token {
             let msg = format!(
@@ -154,7 +154,7 @@ impl SceneInternal {
                 last_sample_token,
                 sample_tokens.last().unwrap()
             );
-            return Err(NuScenesDataError::CorruptedDataset(msg));
+            return Err(Error::CorruptedDataset(msg));
         }
 
         let ret = Self {

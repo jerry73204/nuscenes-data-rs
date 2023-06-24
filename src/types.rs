@@ -1,4 +1,4 @@
-use crate::token::Token;
+use crate::token::{Token, VisibilityToken};
 use chrono::naive::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -86,8 +86,8 @@ pub struct SampleAnnotation {
     pub sample_token: Token,
     pub instance_token: Token,
     pub attribute_tokens: Vec<Token>,
-    #[serde(with = "opt_string_serde")]
-    pub visibility_token: Option<String>,
+    // #[serde(with = "opt_string_serde")]
+    pub visibility_token: Option<VisibilityToken>,
     #[serde(with = "opt_short_token_serde")]
     pub prev: Option<Token>,
     #[serde(with = "opt_short_token_serde")]
@@ -131,7 +131,7 @@ pub struct Sensor {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Visibility {
-    pub token: String,
+    pub token: VisibilityToken,
     pub level: VisibilityLevel,
     pub description: String,
 }
@@ -177,6 +177,33 @@ pub enum Channel {
     RadarBackLeft,
     RadarBackRight,
 }
+
+pub(crate) trait WithToken {
+    fn token(&self) -> Token;
+}
+
+macro_rules! impl_with_token {
+    ($name:path) => {
+        impl WithToken for $name {
+            fn token(&self) -> Token {
+                self.token
+            }
+        }
+    };
+}
+
+impl_with_token!(Attribute);
+impl_with_token!(CalibratedSensor);
+impl_with_token!(Category);
+impl_with_token!(EgoPose);
+impl_with_token!(Instance);
+impl_with_token!(Log);
+impl_with_token!(Map);
+impl_with_token!(Sample);
+impl_with_token!(SampleAnnotation);
+impl_with_token!(SampleData);
+impl_with_token!(Scene);
+impl_with_token!(Sensor);
 
 mod logfile_serde {
     use serde::{
@@ -346,33 +373,33 @@ mod opt_short_token_serde {
     }
 }
 
-mod opt_string_serde {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+// mod opt_string_serde {
+//     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    pub fn serialize<S>(value: &Option<String>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match value {
-            Some(string) => string.serialize(serializer),
-            None => serializer.serialize_str(""),
-        }
-    }
+//     pub fn serialize<S>(value: &Option<String>, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         match value {
+//             Some(string) => string.serialize(serializer),
+//             None => serializer.serialize_str(""),
+//         }
+//     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let string = String::deserialize(deserializer)?;
+//     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+//     where
+//         D: Deserializer<'de>,
+//     {
+//         let string = String::deserialize(deserializer)?;
 
-        let value = match string.len() {
-            0 => None,
-            _ => Some(string),
-        };
+//         let value = match string.len() {
+//             0 => None,
+//             _ => Some(string),
+//         };
 
-        Ok(value)
-    }
-}
+//         Ok(value)
+//     }
+// }
 
 mod timestamp_serde {
     use chrono::NaiveDateTime;
