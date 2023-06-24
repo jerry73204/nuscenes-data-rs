@@ -1,10 +1,9 @@
 use crate::{
     error::{Error, Result},
     parsed::{InstanceInternal, SampleInternal, SceneInternal},
-    token::{Token, VisibilityToken},
-    types::{
+    serializable::{
         Attribute, CalibratedSensor, Category, EgoPose, Instance, Log, Map, Sample,
-        SampleAnnotation, SampleData, Scene, Sensor, Visibility, WithToken,
+        SampleAnnotation, SampleData, Scene, Sensor, Token, Visibility, VisibilityToken, WithToken,
     },
 };
 use chrono::NaiveDateTime;

@@ -1,7 +1,6 @@
 use crate::{
     error::{Error, Result},
-    token::Token,
-    types::{Instance, Sample, SampleAnnotation, Scene},
+    serializable::{Instance, Sample, SampleAnnotation, Scene, Token},
 };
 use chrono::NaiveDateTime;
 use std::collections::HashMap;
