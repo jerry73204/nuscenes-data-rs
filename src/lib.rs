@@ -1,5 +1,4 @@
 mod dataset;
-mod dataset_async;
 pub mod error;
 mod parsed;
 pub mod token;
