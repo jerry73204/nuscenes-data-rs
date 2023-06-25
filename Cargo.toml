@@ -6,3 +6,4 @@ members = [
     "nuscenes-data-opencv",
     "nuscenes-data-pcd",
 ]
+resolver = "2"
