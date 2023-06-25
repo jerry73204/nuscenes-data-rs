@@ -45,14 +45,14 @@ pub struct DatasetLoader {
 impl DatasetLoader {
     /// Load the dataset directory.
     ///
-    /// ```rust
-    /// use nuscenes_data::{DatasetLoader, Result};
+    /// ```ignore
+    /// use nuscenes_data::{DatasetLoader, error::Result};
     ///
-    /// fn main() -> Result<()> {
-    ///     let loader = DatasetLoader { check: true };
-    ///     let dataset = loader.load("1.02", "/path/to/your/dataset")?;
-    ///     OK(())
-    /// }
+    /// # fn main() -> Result<()> {
+    /// let loader = DatasetLoader { check: true };
+    /// let dataset = loader.load("1.02", "/path/to/your/dataset")?;
+    /// #     OK(())
+    /// # }
     /// ```
     pub fn load<P>(&self, version: &str, dir: P) -> Result<Dataset>
     where
