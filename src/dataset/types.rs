@@ -178,6 +178,41 @@ impl Dataset {
     }
 }
 
+macro_rules! impl_field_iter {
+    ($method_name:ident, $field_name:ident, $item_ty:ident) => {
+        impl Dataset {
+            pub fn $method_name(&self) -> impl Iterator<Item = $item_ty> + Send + Sync + '_ {
+                self.owner
+                    .clone()
+                    .flat_map(|owner| owner.$field_name.values())
+                    .map(|item| $item_ty::new(self.owner.clone(), item))
+            }
+        }
+    };
+}
+
+impl_field_iter!(attribute_iter, attribute_map, AttributeRef);
+impl_field_iter!(
+    calibrated_sensor_iter,
+    calibrated_sensor_map,
+    CalibratedSensorRef
+);
+impl_field_iter!(category_iter, category_map, CategoryRef);
+impl_field_iter!(ego_pose_iter, ego_pose_map, EgoPoseRef);
+impl_field_iter!(instance_iter, instance_map, InstanceRef);
+impl_field_iter!(log_iter, log_map, LogRef);
+impl_field_iter!(map_iter, map_map, MapRef);
+impl_field_iter!(scene_iter, scene_map, SceneRef);
+impl_field_iter!(sample_iter, sample_map, SampleRef);
+impl_field_iter!(
+    sample_annotation_iter,
+    sample_annotation_map,
+    SampleAnnotationRef
+);
+impl_field_iter!(sample_data_iter, sample_data_map, SampleDataRef);
+impl_field_iter!(sensor_iter, sensor_map, SensorRef);
+impl_field_iter!(visibility_iter, visibility_map, VisibilityRef);
+
 impl CalibratedSensorRef {
     pub fn sensor(&self) -> SensorRef {
         let ref_ = self
