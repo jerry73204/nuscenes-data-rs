@@ -1,0 +1,10 @@
+[package]
+name = "nuscenes-data-opencv"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+nuscenes-data = { version = "0.3.0", path = "../nuscenes-data" }
+opencv = { version = "0.82.1", default-features = false, features = ["imgcodecs"] }

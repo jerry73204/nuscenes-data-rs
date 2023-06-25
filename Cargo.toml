@@ -3,4 +3,6 @@ members = [
     "nuscenes-data",
     "nuscenes-data-nalgebra",
     "nuscenes-data-image",
+    "nuscenes-data-opencv",
+    "nuscenes-data-pcd",
 ]
