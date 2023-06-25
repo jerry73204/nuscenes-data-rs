@@ -251,9 +251,9 @@ impl InstanceRef {
 }
 
 impl LogRef {
-    pub fn logfile(&self) -> Option<PathBuf> {
-        Some(self.owner.dataset_dir.join(self.ref_.logfile.as_ref()?))
-    }
+    // pub fn logfile(&self) -> Option<PathBuf> {
+    //     Some(self.owner.dataset_dir.join(self.ref_.logfile.as_ref()?))
+    // }
 }
 
 impl MapRef {
