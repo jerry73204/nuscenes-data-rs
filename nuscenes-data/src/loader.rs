@@ -17,6 +17,7 @@ use std::{
     fs::File,
     io::BufReader,
     path::{Path, PathBuf},
+    time::Instant,
 };
 
 macro_rules! bail_corrupted {
@@ -80,7 +81,7 @@ impl DatasetLoader {
 
 impl Default for DatasetLoader {
     fn default() -> Self {
-        Self { check: false }
+        Self { check: true }
     }
 }
 
@@ -224,8 +225,94 @@ fn check_loaded_json(load_json: &LoadJson) -> Result<()> {
             Ok(())
         })?;
 
+    // check sample annotation integrity
+    sample_annotation_map
+        .par_iter()
+        .try_for_each(|(_, sample_annotation)| {
+            ensure_corrupted!(
+                sample_map.contains_key(&sample_annotation.sample_token),
+                "the token {} does not refer to any sample",
+                sample_annotation.sample_token
+            );
+
+            ensure_corrupted!(
+                instance_map.contains_key(&sample_annotation.instance_token),
+                "the token {} does not refer to any instance",
+                sample_annotation.instance_token
+            );
+
+            sample_annotation
+                .attribute_tokens
+                .par_iter()
+                .try_for_each(|token| {
+                    ensure_corrupted!(
+                        attribute_map.contains_key(token),
+                        "the token {} does not refer to any attribute",
+                        token
+                    );
+                    Ok(())
+                })?;
+
+            if let Some(token) = &sample_annotation.visibility_token {
+                ensure_corrupted!(
+                    visibility_map.contains_key(token),
+                    "the token {} does not refer to any visibility",
+                    token
+                );
+            }
+
+            if let Some(token) = &sample_annotation.prev {
+                ensure_corrupted!(
+                    sample_annotation_map.contains_key(token),
+                    "the token {} does not refer to any sample annotation",
+                    token
+                );
+            }
+
+            if let Some(token) = &sample_annotation.next {
+                ensure_corrupted!(
+                    sample_annotation_map.contains_key(token),
+                    "the token {} does not refer to any sample annotation",
+                    token
+                );
+            }
+
+            Ok(())
+        })?;
+
+    // Check sample_annotation.{next,prev} fields integrity
+    {
+        let mut prev_edges: Vec<_> = sample_annotation_map
+            .par_iter()
+            .filter_map(|(&curr_token, annotation)| Some((annotation.prev?, curr_token)))
+            .collect();
+        prev_edges.par_sort_unstable();
+
+        let mut next_edges: Vec<_> = sample_annotation_map
+            .par_iter()
+            .filter_map(|(&curr_token, annotation)| Some((curr_token, annotation.next?)))
+            .collect();
+        next_edges.par_sort_unstable();
+
+        ensure_corrupted!(
+            prev_edges.len() == next_edges.len(),
+            "The number of non-null sample_annotation.next does not match the number of sample_annotation.prev"
+        );
+
+        prev_edges
+            .par_iter()
+            .zip(next_edges.par_iter())
+            .try_for_each(|(e1, e2)| {
+                ensure_corrupted!(
+                    e1 == e2,
+                    "The prev and next fields of sample_annotatoin.json are corrupted"
+                );
+                Ok(())
+            })?;
+    }
+
     // check instance integrity
-    for (instance_token, instance) in instance_map {
+    instance_map.par_iter().try_for_each(|(_, instance)| {
         ensure_corrupted!(
             sample_annotation_map.contains_key(&instance.first_annotation_token),
             "the token {} does not refer to any sample annotation",
@@ -244,125 +331,118 @@ fn check_loaded_json(load_json: &LoadJson) -> Result<()> {
             instance.category_token
         );
 
-        let mut annotation_token = &instance.first_annotation_token;
-        let mut prev_annotation_token = None;
-        let mut count = 0;
+        Ok(())
+    })?;
 
-        loop {
-            let annotation = match sample_annotation_map.get(annotation_token) {
-                    Some(annotation) => annotation,
-                    None => {
-                        match prev_annotation_token {
-                            Some(prev) => bail_corrupted!("the sample_annotation with token {prev} points to next token {annotation_token} that does not exist"),
-                            None => bail_corrupted!("the instance with token {instance_token} points to first_annotation_token {annotation_token} that does not exist"),  
-                        }
-                    }
-                };
+    // Check instance.first_annotation_token
+    {
+        let mut lhs: Vec<_> = sample_annotation_map
+            .par_iter()
+            .filter_map(|(&token, annotation)| annotation.prev.is_none().then_some(token))
+            .collect();
+        let mut rhs: Vec<_> = instance_map
+            .par_iter()
+            .map(|(_, instance)| instance.first_annotation_token)
+            .collect();
 
-            ensure_corrupted!(
-                prev_annotation_token == annotation.prev.as_ref(),
-                "the prev field is not correct in sample annotation with token {}",
-                annotation_token
-            );
-
-            count += 1;
-
-            prev_annotation_token = Some(annotation_token);
-            annotation_token = match &annotation.next {
-                Some(next) => next,
-                None => {
-                    ensure_corrupted!(
-                        &instance.last_annotation_token == annotation_token,
-                        "the last_annotation_token is not correct in instance with token {}",
-                        instance_token
-                    );
-                    ensure_corrupted!(
-                        count == instance.nbr_annotations,
-                        "the nbr_annotations is not correct in instance with token {}",
-                        instance_token
-                    );
-                    break;
-                }
-            };
-        }
+        lhs.par_sort_unstable();
+        rhs.par_sort_unstable();
+        lhs.par_iter()
+            .zip(rhs.par_iter())
+            .try_for_each(|(lhs, rhs)| {
+                ensure_corrupted!(lhs == rhs, "instance.first_annotation_token is corrupted");
+                Ok(())
+            })?;
     }
+
+    // Check instance.last_annotation_token
+    {
+        let mut lhs: Vec<_> = sample_annotation_map
+            .par_iter()
+            .filter_map(|(&token, annotation)| annotation.next.is_none().then_some(token))
+            .collect();
+        let mut rhs: Vec<_> = instance_map
+            .par_iter()
+            .map(|(_, instance)| instance.last_annotation_token)
+            .collect();
+
+        lhs.par_sort_unstable();
+        rhs.par_sort_unstable();
+
+        lhs.par_iter()
+            .zip(rhs.par_iter())
+            .try_for_each(|(lhs, rhs)| {
+                ensure_corrupted!(lhs == rhs, "instance.first_annotation_token is corrupted");
+                Ok(())
+            })?;
+    }
+
+    // Check instance.nbr_annotations
+    // TODO: implement the parallel algorithm to count the length of chained annotations
+    // {
+    //     for (instance_token, instance) in instance_map {
+    //         let mut annotation_token = &instance.first_annotation_token;
+    //         let mut prev_annotation_token = None;
+    //         let mut count = 0;
+
+    //         loop {
+    //             let annotation = match sample_annotation_map.get(annotation_token) {
+    //                 Some(annotation) => annotation,
+    //                 None => {
+    //                     match prev_annotation_token {
+    //                         Some(prev) => bail_corrupted!("the sample_annotation with token {prev} points to next token {annotation_token} that does not exist"),
+    //                         None => bail_corrupted!("the instance with token {instance_token} points to first_annotation_token {annotation_token} that does not exist"),
+    //                     }
+    //                 }
+    //             };
+
+    //             ensure_corrupted!(
+    //                 prev_annotation_token == annotation.prev.as_ref(),
+    //                 "the prev field is not correct in sample annotation with token {}",
+    //                 annotation_token
+    //             );
+
+    //             count += 1;
+
+    //             prev_annotation_token = Some(annotation_token);
+    //             annotation_token = match &annotation.next {
+    //                 Some(next) => next,
+    //                 None => {
+    //                     ensure_corrupted!(
+    //                         &instance.last_annotation_token == annotation_token,
+    //                         "the last_annotation_token is not correct in instance with token {}",
+    //                         instance_token
+    //                     );
+    //                     ensure_corrupted!(
+    //                         count == instance.nbr_annotations,
+    //                         "the nbr_annotations is not correct in instance with token {}",
+    //                         instance_token
+    //                     );
+    //                     break;
+    //                 }
+    //             };
+    //         }
+    //     }
+    // }
 
     // check map integrity
-    for map in map_map.values() {
-        for token in &map.log_tokens {
+    map_map
+        .par_iter()
+        .flat_map(|(map_token, map)| {
+            map.log_tokens
+                .par_iter()
+                .map(move |log_token| (map_token, log_token))
+        })
+        .try_for_each(|(map_token, log_token)| {
             ensure_corrupted!(
-                log_map.contains_key(token),
-                "the token {} does not refer to any log",
-                token
+                log_map.contains_key(log_token),
+                "in the map {map_token}, the log_token {log_token} does not refer to any valid log"
             );
-        }
-    }
-
-    // check scene integrity
-    for (scene_token, scene) in scene_map {
-        ensure_corrupted!(
-            log_map.contains_key(&scene.log_token),
-            "the token {} does not refer to any log",
-            scene.log_token
-        );
-
-        ensure_corrupted!(
-            sample_map.contains_key(&scene.first_sample_token),
-            "the token {} does not refer to any sample",
-            scene.first_sample_token
-        );
-
-        ensure_corrupted!(
-            sample_map.contains_key(&scene.last_sample_token),
-            "the token {} does not refer to any sample",
-            scene.last_sample_token
-        );
-
-        let mut prev_sample_token = None;
-        let mut sample_token = &scene.first_sample_token;
-        let mut count = 0;
-
-        loop {
-            let sample = match sample_map.get(sample_token) {
-                    Some(sample) => sample,
-                    None => {
-                        match prev_sample_token {
-                            Some(prev) => bail_corrupted!("the sample with token {} points to a next token {} that does not exist", prev, sample_token),
-                            None => bail_corrupted!("the scene with token {} points to first_sample_token {} that does not exist", scene_token, sample_token),
-                        }
-                    }
-            };
-
-            ensure_corrupted!(
-                prev_sample_token == sample.prev.as_ref(),
-                "the prev field in sample with token {} is not correct",
-                sample_token
-            );
-
-            prev_sample_token = Some(sample_token);
-            count += 1;
-
-            sample_token = match &sample.next {
-                Some(next) => next,
-                None => {
-                    ensure_corrupted!(
-                        sample_token == &scene.last_sample_token,
-                        "the last_sample_token is not correct in scene with token {}",
-                        scene_token
-                    );
-                    ensure_corrupted!(
-                        count == scene.nbr_samples,
-                        "the nbr_samples in scene with token {} is not correct",
-                        scene_token
-                    );
-                    break;
-                }
-            };
-        }
-    }
+            Ok(())
+        })?;
 
     // check sample integrity
-    for (_, sample) in sample_map.iter() {
+    sample_map.par_iter().try_for_each(|(_, sample)| {
         ensure_corrupted!(
             scene_map.contains_key(&sample.scene_token),
             "the token {} does not refer to any scene",
@@ -384,90 +464,223 @@ fn check_loaded_json(load_json: &LoadJson) -> Result<()> {
                 token
             );
         }
+
+        Ok(())
+    })?;
+
+    // Check sample.{next,prev} fields integrity
+    {
+        let mut prev_edges: Vec<_> = sample_map
+            .par_iter()
+            .filter_map(|(&curr_token, sample)| Some((sample.prev?, curr_token)))
+            .collect();
+        prev_edges.par_sort_unstable();
+
+        let mut next_edges: Vec<_> = sample_map
+            .par_iter()
+            .filter_map(|(&curr_token, sample)| Some((curr_token, sample.next?)))
+            .collect();
+        next_edges.par_sort_unstable();
+
+        ensure_corrupted!(
+            prev_edges.len() == next_edges.len(),
+            "The number of non-null sample.next does not match the number of sample.prev"
+        );
+
+        prev_edges
+            .par_iter()
+            .zip(next_edges.par_iter())
+            .try_for_each(|(e1, e2)| {
+                ensure_corrupted!(
+                    e1 == e2,
+                    "The prev and next fields of sample.json are corrupted"
+                );
+                Ok(())
+            })?;
     }
 
-    // check sample annotation integrity
-    for (_, sample_annotation) in sample_annotation_map.iter() {
+    // check scene integrity
+    scene_map.par_iter().try_for_each(|(_, scene)| {
         ensure_corrupted!(
-            sample_map.contains_key(&sample_annotation.sample_token),
+            log_map.contains_key(&scene.log_token),
+            "the token {} does not refer to any log",
+            scene.log_token
+        );
+
+        ensure_corrupted!(
+            sample_map.contains_key(&scene.first_sample_token),
             "the token {} does not refer to any sample",
-            sample_annotation.sample_token
+            scene.first_sample_token
         );
 
         ensure_corrupted!(
-            instance_map.contains_key(&sample_annotation.instance_token),
-            "the token {} does not refer to any instance",
-            sample_annotation.instance_token
+            sample_map.contains_key(&scene.last_sample_token),
+            "the token {} does not refer to any sample",
+            scene.last_sample_token
         );
 
-        for token in sample_annotation.attribute_tokens.iter() {
-            ensure_corrupted!(
-                attribute_map.contains_key(token),
-                "the token {} does not refer to any attribute",
-                token
-            );
-        }
+        Ok(())
+    })?;
 
-        if let Some(token) = &sample_annotation.visibility_token {
-            ensure_corrupted!(
-                visibility_map.contains_key(token),
-                "the token {} does not refer to any visibility",
-                token
-            );
-        }
+    // Check scene.first_sample_token
+    {
+        let mut lhs: Vec<_> = sample_map
+            .par_iter()
+            .filter_map(|(&token, sample)| sample.prev.is_none().then_some(token))
+            .collect();
+        let mut rhs: Vec<_> = scene_map
+            .par_iter()
+            .map(|(_, scene)| scene.first_sample_token)
+            .collect();
 
-        if let Some(token) = &sample_annotation.prev {
-            ensure_corrupted!(
-                sample_annotation_map.contains_key(token),
-                "the token {} does not refer to any sample annotation",
-                token
-            );
-        }
-
-        if let Some(token) = &sample_annotation.next {
-            ensure_corrupted!(
-                sample_annotation_map.contains_key(token),
-                "the token {} does not refer to any sample annotation",
-                token
-            );
-        }
+        lhs.par_sort_unstable();
+        rhs.par_sort_unstable();
+        lhs.par_iter()
+            .zip(rhs.par_iter())
+            .try_for_each(|(lhs, rhs)| {
+                ensure_corrupted!(lhs == rhs, "scene.first_sample_token is corrupted");
+                Ok(())
+            })?;
     }
+
+    // Check scene.last_sample_token
+    {
+        let mut lhs: Vec<_> = sample_map
+            .par_iter()
+            .filter_map(|(&token, sample)| sample.next.is_none().then_some(token))
+            .collect();
+        let mut rhs: Vec<_> = scene_map
+            .par_iter()
+            .map(|(_, scene)| scene.last_sample_token)
+            .collect();
+
+        lhs.par_sort_unstable();
+        rhs.par_sort_unstable();
+
+        lhs.par_iter()
+            .zip(rhs.par_iter())
+            .try_for_each(|(lhs, rhs)| {
+                ensure_corrupted!(lhs == rhs, "scene.first_sample_token is corrupted");
+                Ok(())
+            })?;
+    }
+
+    // Check scene.nbr_samples
+    // TODO: implement a parallel algorithm to check scene.nbr_samples
+    // for (scene_token, scene) in scene_map {
+    //     let mut prev_sample_token = None;
+    //     let mut sample_token = &scene.first_sample_token;
+    //     let mut count = 0;
+
+    //     loop {
+    //         let sample = match sample_map.get(sample_token) {
+    //                 Some(sample) => sample,
+    //                 None => {
+    //                     match prev_sample_token {
+    //                         Some(prev) => bail_corrupted!("the sample with token {} points to a next token {} that does not exist", prev, sample_token),
+    //                         None => bail_corrupted!("the scene with token {} points to first_sample_token {} that does not exist", scene_token, sample_token),
+    //                     }
+    //                 }
+    //         };
+
+    //         ensure_corrupted!(
+    //             prev_sample_token == sample.prev.as_ref(),
+    //             "the prev field in sample with token {} is not correct",
+    //             sample_token
+    //         );
+
+    //         prev_sample_token = Some(sample_token);
+    //         count += 1;
+
+    //         sample_token = match &sample.next {
+    //             Some(next) => next,
+    //             None => {
+    //                 ensure_corrupted!(
+    //                     sample_token == &scene.last_sample_token,
+    //                     "the last_sample_token is not correct in scene with token {}",
+    //                     scene_token
+    //                 );
+    //                 ensure_corrupted!(
+    //                     count == scene.nbr_samples,
+    //                     "the nbr_samples in scene with token {} is not correct",
+    //                     scene_token
+    //                 );
+    //                 break;
+    //             }
+    //         };
+    //     }
+    // }
 
     // check sample data integrity
-    for (_, sample_data) in sample_data_map.iter() {
-        ensure_corrupted!(
-            sample_map.contains_key(&sample_data.sample_token),
-            "the token {} does not refer to any sample",
-            sample_data.sample_token
-        );
-
-        ensure_corrupted!(
-            ego_pose_map.contains_key(&sample_data.ego_pose_token),
-            "the token {} does not refer to any ego pose",
-            sample_data.ego_pose_token
-        );
-
-        ensure_corrupted!(
-            calibrated_sensor_map.contains_key(&sample_data.calibrated_sensor_token),
-            "the token {} does not refer to any calibrated sensor",
-            sample_data.calibrated_sensor_token
-        );
-
-        if let Some(token) = &sample_data.prev {
+    sample_data_map
+        .par_iter()
+        .try_for_each(|(_, sample_data)| {
             ensure_corrupted!(
-                sample_data_map.contains_key(token),
-                "the token {} does not refer to any sample data",
-                token
+                sample_map.contains_key(&sample_data.sample_token),
+                "the token {} does not refer to any sample",
+                sample_data.sample_token
             );
-        }
 
-        if let Some(token) = &sample_data.next {
             ensure_corrupted!(
-                sample_data_map.contains_key(token),
-                "the token {} does not refer to any sample data",
-                token
+                ego_pose_map.contains_key(&sample_data.ego_pose_token),
+                "the token {} does not refer to any ego pose",
+                sample_data.ego_pose_token
             );
-        }
+
+            ensure_corrupted!(
+                calibrated_sensor_map.contains_key(&sample_data.calibrated_sensor_token),
+                "the token {} does not refer to any calibrated sensor",
+                sample_data.calibrated_sensor_token
+            );
+
+            if let Some(token) = &sample_data.prev {
+                ensure_corrupted!(
+                    sample_data_map.contains_key(token),
+                    "the token {} does not refer to any sample data",
+                    token
+                );
+            }
+
+            if let Some(token) = &sample_data.next {
+                ensure_corrupted!(
+                    sample_data_map.contains_key(token),
+                    "the token {} does not refer to any sample data",
+                    token
+                );
+            }
+
+            Ok(())
+        })?;
+
+    // Check sample_annotation.{next,prev} fields integrity
+    {
+        let mut prev_edges: Vec<_> = sample_data_map
+            .par_iter()
+            .filter_map(|(&curr_token, data)| Some((data.prev?, curr_token)))
+            .collect();
+        prev_edges.par_sort_unstable();
+
+        let mut next_edges: Vec<_> = sample_data_map
+            .par_iter()
+            .filter_map(|(&curr_token, data)| Some((curr_token, data.next?)))
+            .collect();
+        next_edges.par_sort_unstable();
+
+        ensure_corrupted!(
+            prev_edges.len() == next_edges.len(),
+            "The number of non-null sample_data.next does not match the number of sample_data.prev"
+        );
+
+        prev_edges
+            .par_iter()
+            .zip(next_edges.par_iter())
+            .try_for_each(|(e1, e2)| {
+                ensure_corrupted!(
+                    e1 == e2,
+                    "The prev and next fields of sample_annotatoin.json are corrupted"
+                );
+                Ok(())
+            })?;
     }
 
     Ok(())
@@ -639,10 +852,14 @@ fn index_records(
 fn load_map<T, P>(path: P) -> Result<HashMap<Token, T>>
 where
     P: AsRef<Path>,
-    T: for<'a> Deserialize<'a> + WithToken,
+    T: for<'a> Deserialize<'a> + WithToken + Send,
+    Vec<T>: rayon::iter::IntoParallelIterator<Item = T>,
 {
     let vec: Vec<T> = load_json(path)?;
-    let map = vec.into_iter().map(|item| (item.token(), item)).collect();
+    let map = vec
+        .into_par_iter()
+        .map(|item| (item.token(), item))
+        .collect();
     Ok(map)
 }
 

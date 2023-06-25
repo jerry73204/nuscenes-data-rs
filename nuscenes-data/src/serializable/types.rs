@@ -90,7 +90,6 @@ pub struct SampleAnnotation {
     pub sample_token: Token,
     pub instance_token: Token,
     pub attribute_tokens: Vec<Token>,
-    // #[serde(with = "serde_utils::opt_string")]
     pub visibility_token: Option<VisibilityToken>,
     #[serde(with = "serde_utils::opt_token")]
     pub prev: Option<Token>,

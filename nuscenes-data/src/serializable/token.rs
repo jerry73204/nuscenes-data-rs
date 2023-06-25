@@ -8,7 +8,7 @@ use std::{
 
 pub const TOKEN_LENGTH: usize = 16;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Token(pub [u8; TOKEN_LENGTH]);
 
 impl Display for Token {
@@ -60,7 +60,7 @@ impl<'de> Deserialize<'de> for Token {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VisibilityToken(pub u32);
 
 impl Display for VisibilityToken {
