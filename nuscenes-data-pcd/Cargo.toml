@@ -10,3 +10,8 @@ anyhow = "1.0.71"
 nuscenes-data = { version = "0.3.0", path = "../nuscenes-data" }
 pcd-rs = { version = "0.10.0", features = ["derive"] }
 raw-parts = "2.0.0"
+
+[dev-dependencies]
+anyhow = { version = "1.0.71", features = ["backtrace"] }
+clap = { version = "4.3.8", features = ["derive"] }
+kiss3d = "0.35.0"
