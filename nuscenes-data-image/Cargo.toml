@@ -2,6 +2,14 @@
 name = "nuscenes-data-image"
 version = "0.1.0"
 edition = "2021"
+authors = ["jerry73204 <jerry73204@gmail.com>"]
+description = "Extension crate to nuscenes-data adding `image` integration"
+categories = ["parsing"]
+documentation = "https://docs.rs/nuscenes-data/"
+repository = "https://github.com/jerry73204/nuscenes-data-rs"
+homepage = "https://github.com/jerry73204/nuscenes-data-rs"
+readme = "README.md"
+license-file = "LICENSE"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
