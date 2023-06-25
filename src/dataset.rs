@@ -7,16 +7,12 @@ use crate::{
     },
 };
 use chrono::NaiveDateTime;
-use image::DynamicImage;
 use itertools::Itertools;
-use nalgebra::MatrixXx5;
 use serde::Deserialize;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
 };
-
-pub type PointCloudMatrix = MatrixXx5<f32>;
 
 #[derive(Debug, Clone)]
 pub struct DatasetLoader {
@@ -619,12 +615,6 @@ impl Dataset {
     {
         DatasetLoader::default().load(version, dir)
     }
-}
-
-#[derive(Clone)]
-pub enum LoadedSampleData {
-    PointCloud(PointCloudMatrix),
-    Image(DynamicImage),
 }
 
 fn load_json<T, P>(path: P) -> Result<T>

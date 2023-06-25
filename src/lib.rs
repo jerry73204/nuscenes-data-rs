@@ -5,6 +5,6 @@ pub mod refs;
 pub mod serializable;
 
 pub use crate::{
-    dataset::{Dataset, DatasetLoader, LoadedSampleData},
+    dataset::{Dataset, DatasetLoader},
     serializable::Token,
 };
