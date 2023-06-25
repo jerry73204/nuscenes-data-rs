@@ -13,22 +13,22 @@ pub mod prelude {
 }
 
 pub trait MapRefImageExt {
-    fn load_dynamic_image(&self) -> cv::Result<Mat>;
+    fn load_opencv_mat(&self) -> cv::Result<Mat>;
 }
 
 impl MapRefImageExt for MapRef {
-    fn load_dynamic_image(&self) -> cv::Result<Mat> {
+    fn load_opencv_mat(&self) -> cv::Result<Mat> {
         let path = format!("{}", self.path().display());
         imread(&path, IMREAD_COLOR)
     }
 }
 
 pub trait SampleDataRefImageExt {
-    fn load_dynamic_image(&self) -> cv::Result<Option<Mat>>;
+    fn load_opencv_mat(&self) -> cv::Result<Option<Mat>>;
 }
 
 impl SampleDataRefImageExt for SampleDataRef {
-    fn load_dynamic_image(&self) -> cv::Result<Option<Mat>> {
+    fn load_opencv_mat(&self) -> cv::Result<Option<Mat>> {
         if self.fileformat != FileFormat::Jpg {
             return Ok(None);
         }
