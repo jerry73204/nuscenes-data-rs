@@ -1,7 +1,6 @@
 pub mod dataset;
 pub mod error;
-mod loader;
-mod parsed;
+pub mod loader;
 pub mod serializable;
 pub mod utils;
 

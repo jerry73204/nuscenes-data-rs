@@ -1,7 +1,6 @@
 use crate::{
-    dataset::{Dataset, DatasetInner},
+    dataset::{Dataset, DatasetInner, InstanceInner, SampleInner, SceneInner},
     error::{Error, Result},
-    parsed::{InstanceInternal, SampleInternal, SceneInternal},
     serializable::{
         Attribute, CalibratedSensor, Category, EgoPose, Instance, Log, Map, Sample,
         SampleAnnotation, SampleData, Scene, Sensor, Token, Visibility, VisibilityToken,
@@ -721,10 +720,10 @@ fn index_records(
         .into_group_map();
 
     // convert some types for ease of usage
-    let instance_internal_map: HashMap<Token, InstanceInternal> = instance_map
+    let instance_internal_map: HashMap<Token, InstanceInner> = instance_map
         .into_par_iter()
         .map(|(instance_token, instance)| -> Result<_> {
-            let ret = InstanceInternal::from(instance, &sample_annotation_map)?;
+            let ret = InstanceInner::from(instance, &sample_annotation_map)?;
             Ok((instance_token, ret))
         })
         .par_try_collect()?;
@@ -732,7 +731,7 @@ fn index_records(
     let scene_internal_map: HashMap<_, _> = scene_map
         .into_par_iter()
         .map(|(scene_token, scene)| -> Result<_> {
-            let internal = SceneInternal::from(scene, &sample_map)?;
+            let internal = SceneInner::from(scene, &sample_map)?;
             Ok((scene_token, internal))
         })
         .par_try_collect()?;
@@ -746,7 +745,7 @@ fn index_records(
             let annotation_tokens = sample_to_annotation_groups
                 .remove(&sample_token)
                 .unwrap_or_default();
-            let internal = SampleInternal::from(sample, annotation_tokens, sample_data_tokens);
+            let internal = SampleInner::from(sample, annotation_tokens, sample_data_tokens);
             Ok((sample_token, internal))
         })
         .try_collect()?;

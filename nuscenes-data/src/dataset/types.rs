@@ -1,7 +1,6 @@
-use super::dataset_inner::DatasetInner;
+use super::inner::{DatasetInner, InstanceInner, SampleInner, SceneInner};
 use crate::{
     error::Result,
-    parsed::{InstanceInternal, SampleInternal, SceneInternal},
     serializable::{
         Attribute, CalibratedSensor, Category, EgoPose, Log, Map, SampleAnnotation, SampleData,
         Sensor, Visibility, VisibilityToken,
@@ -50,11 +49,11 @@ make_ref!(AttributeRef, Attribute);
 make_ref!(CalibratedSensorRef, CalibratedSensor);
 make_ref!(CategoryRef, Category);
 make_ref!(EgoPoseRef, EgoPose);
-make_ref!(InstanceRef, InstanceInternal);
+make_ref!(InstanceRef, InstanceInner);
 make_ref!(LogRef, Log);
 make_ref!(MapRef, Map);
-make_ref!(SceneRef, SceneInternal);
-make_ref!(SampleRef, SampleInternal);
+make_ref!(SceneRef, SceneInner);
+make_ref!(SampleRef, SampleInner);
 make_ref!(SampleAnnotationRef, SampleAnnotation);
 make_ref!(SampleDataRef, SampleData);
 make_ref!(SensorRef, Sensor);

@@ -1,12 +1,38 @@
 use crate::{
     error::{Error, Result},
-    serializable::{Instance, Sample, SampleAnnotation, Scene, Token},
+    serializable::{
+        Attribute, CalibratedSensor, Category, EgoPose, Instance, Log, Map, Sample,
+        SampleAnnotation, SampleData, Scene, Sensor, Token, Visibility, VisibilityToken,
+    },
 };
 use chrono::NaiveDateTime;
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 #[derive(Debug, Clone)]
-pub struct SampleInternal {
+pub struct DatasetInner {
+    pub version: String,
+    pub dataset_dir: PathBuf,
+    pub attribute_map: HashMap<Token, Attribute>,
+    pub calibrated_sensor_map: HashMap<Token, CalibratedSensor>,
+    pub category_map: HashMap<Token, Category>,
+    pub ego_pose_map: HashMap<Token, EgoPose>,
+    pub instance_map: HashMap<Token, InstanceInner>,
+    pub log_map: HashMap<Token, Log>,
+    pub map_map: HashMap<Token, Map>,
+    pub scene_map: HashMap<Token, SceneInner>,
+    pub sample_map: HashMap<Token, SampleInner>,
+    pub sample_annotation_map: HashMap<Token, SampleAnnotation>,
+    pub sample_data_map: HashMap<Token, SampleData>,
+    pub sensor_map: HashMap<Token, Sensor>,
+    pub visibility_map: HashMap<VisibilityToken, Visibility>,
+    pub sorted_ego_pose_tokens: Vec<Token>,
+    pub sorted_sample_tokens: Vec<Token>,
+    pub sorted_sample_data_tokens: Vec<Token>,
+    pub sorted_scene_tokens: Vec<Token>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SampleInner {
     pub token: Token,
     pub next: Option<Token>,
     pub prev: Option<Token>,
@@ -16,7 +42,7 @@ pub struct SampleInternal {
     pub sample_data_tokens: Vec<Token>,
 }
 
-impl SampleInternal {
+impl SampleInner {
     pub fn from(
         sample: Sample,
         annotation_tokens: Vec<Token>,
@@ -43,13 +69,13 @@ impl SampleInternal {
 }
 
 #[derive(Debug, Clone)]
-pub struct InstanceInternal {
+pub struct InstanceInner {
     pub token: Token,
     pub category_token: Token,
     pub annotation_tokens: Vec<Token>,
 }
 
-impl InstanceInternal {
+impl InstanceInner {
     pub fn from(
         instance: Instance,
         sample_annotation_map: &HashMap<Token, SampleAnnotation>,
@@ -106,7 +132,7 @@ impl InstanceInternal {
 }
 
 #[derive(Debug, Clone)]
-pub struct SceneInternal {
+pub struct SceneInner {
     pub token: Token,
     pub name: String,
     pub description: String,
@@ -114,7 +140,7 @@ pub struct SceneInternal {
     pub sample_tokens: Vec<Token>,
 }
 
-impl SceneInternal {
+impl SceneInner {
     pub fn from(scene: Scene, sample_map: &HashMap<Token, Sample>) -> Result<Self> {
         let Scene {
             token,

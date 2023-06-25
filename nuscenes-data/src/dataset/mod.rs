@@ -1,5 +1,5 @@
-mod dataset_inner;
+mod inner;
 mod types;
 
-pub use dataset_inner::DatasetInner;
+pub use inner::*;
 pub use types::*;
