@@ -1,33 +1,34 @@
+use super::dataset::DatasetInner;
 use crate::{
-    dataset::Dataset,
+    error::Result,
     parsed::{InstanceInternal, SampleInternal, SceneInternal},
     serializable::{
         Attribute, CalibratedSensor, Category, EgoPose, Log, Map, SampleAnnotation, SampleData,
         Sensor, Visibility, VisibilityToken,
     },
-    Token,
+    DatasetLoader, Token,
 };
 use ownref::ArcRefC;
-use std::ops::Deref;
+use std::{ops::Deref, path::Path};
 
-type ARef<T> = ArcRefC<'static, Dataset, T>;
+type ARef<T> = ArcRefC<'static, DatasetInner, T>;
 
 macro_rules! make_ref {
     ($name:ident, $ty:ty) => {
         pub struct $name {
             #[allow(dead_code)]
-            owner: ARef<Dataset>,
+            owner: ARef<DatasetInner>,
             ref_: ARef<$ty>,
         }
 
         impl $name {
             #[allow(dead_code)]
-            fn new(owner: ARef<Dataset>, ref_: ARef<$ty>) -> Self {
+            fn new(owner: ARef<DatasetInner>, ref_: ARef<$ty>) -> Self {
                 Self { owner, ref_ }
             }
 
-            pub fn dataset(&self) -> DatasetRef {
-                DatasetRef::new(self.owner.clone(), self.owner.clone())
+            pub fn dataset(&self) -> Dataset {
+                Dataset::new(self.owner.clone(), self.owner.clone())
             }
         }
 
@@ -41,7 +42,7 @@ macro_rules! make_ref {
     };
 }
 
-make_ref!(DatasetRef, Dataset);
+make_ref!(Dataset, DatasetInner);
 make_ref!(AttributeRef, Attribute);
 make_ref!(CalibratedSensorRef, CalibratedSensor);
 make_ref!(CategoryRef, Category);
@@ -56,7 +57,22 @@ make_ref!(SampleDataRef, SampleData);
 make_ref!(SensorRef, Sensor);
 make_ref!(VisibilityRef, Visibility);
 
-impl DatasetRef {
+impl Dataset {
+    pub(crate) fn from_inner(inner: DatasetInner) -> Self {
+        let owner = ARef::new(inner);
+        Self {
+            owner: owner.clone(),
+            ref_: owner.clone(),
+        }
+    }
+
+    pub fn load<P>(version: &str, dataset_dir: P) -> Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        DatasetLoader::default().load(version, dataset_dir)
+    }
+
     pub fn attribute(&self, token: Token) -> Option<AttributeRef> {
         let ref_ = self
             .owner

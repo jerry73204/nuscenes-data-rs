@@ -1,5 +1,8 @@
 use super::serde_utils;
-use crate::serializable::{Token, VisibilityToken};
+use crate::{
+    serializable::{Token, VisibilityToken},
+    utils::WithToken,
+};
 use chrono::naive::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -177,10 +180,6 @@ pub enum Channel {
     RadarFrontRight,
     RadarBackLeft,
     RadarBackRight,
-}
-
-pub(crate) trait WithToken {
-    fn token(&self) -> Token;
 }
 
 macro_rules! impl_with_token {

@@ -1,4 +1,5 @@
 use crate::{
+    dataset::{Dataset, DatasetInner},
     error::{Error, Result},
     parsed::{InstanceInternal, SampleInternal, SceneInternal},
     serializable::{
@@ -9,10 +10,7 @@ use crate::{
 use chrono::NaiveDateTime;
 use itertools::Itertools;
 use serde::Deserialize;
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, path::Path};
 
 #[derive(Debug, Clone)]
 pub struct DatasetLoader {
@@ -533,7 +531,7 @@ impl DatasetLoader {
         };
 
         // construct result
-        let ret = Dataset {
+        let inner = DatasetInner {
             version: version.to_string(),
             dataset_dir: dataset_dir.to_owned(),
             attribute_map,
@@ -555,65 +553,13 @@ impl DatasetLoader {
             sorted_sample_data_tokens,
         };
 
-        Ok(ret)
+        Ok(Dataset::from_inner(inner))
     }
 }
 
 impl Default for DatasetLoader {
     fn default() -> Self {
         Self { check: false }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Dataset {
-    pub version: String,
-    pub dataset_dir: PathBuf,
-    pub attribute_map: HashMap<Token, Attribute>,
-    pub calibrated_sensor_map: HashMap<Token, CalibratedSensor>,
-    pub category_map: HashMap<Token, Category>,
-    pub ego_pose_map: HashMap<Token, EgoPose>,
-    pub instance_map: HashMap<Token, InstanceInternal>,
-    pub log_map: HashMap<Token, Log>,
-    pub map_map: HashMap<Token, Map>,
-    pub scene_map: HashMap<Token, SceneInternal>,
-    pub sample_map: HashMap<Token, SampleInternal>,
-    pub sample_annotation_map: HashMap<Token, SampleAnnotation>,
-    pub sample_data_map: HashMap<Token, SampleData>,
-    pub sensor_map: HashMap<Token, Sensor>,
-    pub visibility_map: HashMap<VisibilityToken, Visibility>,
-    pub sorted_ego_pose_tokens: Vec<Token>,
-    pub sorted_sample_tokens: Vec<Token>,
-    pub sorted_sample_data_tokens: Vec<Token>,
-    pub sorted_scene_tokens: Vec<Token>,
-}
-
-impl Dataset {
-    /// Gets version of the dataset.
-    pub fn version(&self) -> &str {
-        &self.version
-    }
-
-    /// Gets the directory of dataset.
-    pub fn dir(&self) -> &Path {
-        &self.dataset_dir
-    }
-
-    /// Load the dataset directory.
-    ///
-    /// ```rust
-    /// use nuscenes_data::{Dataset, Result};
-    ///
-    /// fn main() -> Result<()> {
-    ///     let dataset = Dataset::load("1.02", "/path/to/your/dataset")?;
-    ///     OK(())
-    /// }
-    /// ```
-    pub fn load<P>(version: &str, dir: P) -> Result<Self>
-    where
-        P: AsRef<Path>,
-    {
-        DatasetLoader::default().load(version, dir)
     }
 }
 
