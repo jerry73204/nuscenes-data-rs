@@ -15,16 +15,15 @@ fn main() -> Result<()> {
     let dataset = Dataset::load(&opts.version, &opts.data_dir)?;
 
     // Iterate over scenes chronologically
-    for scene in dataset.scene_map.values() {
+    for scene in dataset.scene_iter() {
         println!("read scene {}", scene.token);
 
         // Get associated log
-        let log = &dataset.log_map[&scene.log_token];
+        let log = scene.log();
         println!("captured at {}", log.date_captured);
 
         // Iterate over associated samples
-        for &sample_tokens in &scene.sample_tokens {
-            let sample = &dataset.sample_map[&sample_tokens];
+        for sample in scene.sample_iter() {
             println!(
                 "found sample {} in scene {} with timestamp {}",
                 sample.token, scene.token, sample.timestamp
@@ -34,8 +33,7 @@ fn main() -> Result<()> {
             assert_eq!(scene.token, sample.scene_token);
 
             // Iterate over associated annotations
-            for &annotation_token in &sample.annotation_tokens {
-                let annotation = &dataset.sample_annotation_map[&annotation_token];
+            for annotation in sample.annotation_iter() {
                 println!(
                     "found annotation {} in sample {}",
                     annotation.token, sample.token,
@@ -43,9 +41,11 @@ fn main() -> Result<()> {
             }
 
             // Iterate over associated data
-            for &sample_data_token in &sample.sample_data_tokens {
-                let data = &dataset.sample_data_map[&sample_data_token];
-                println!("found data {} in sample {}", data.token, sample.token);
+            for sample_data in sample.sample_data_iter() {
+                println!(
+                    "found data {} in sample {}",
+                    sample_data.token, sample.token
+                );
 
                 // Load data
                 // match data.load()? {
