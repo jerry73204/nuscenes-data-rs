@@ -17,7 +17,6 @@ use std::{
     fs::File,
     io::BufReader,
     path::{Path, PathBuf},
-    time::Instant,
 };
 
 macro_rules! bail_corrupted {

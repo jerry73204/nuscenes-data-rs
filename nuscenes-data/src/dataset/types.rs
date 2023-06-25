@@ -9,7 +9,10 @@ use crate::{
     DatasetLoader, Token,
 };
 use ownref::ArcRefC;
-use std::{ops::Deref, path::Path};
+use std::{
+    ops::Deref,
+    path::{Path, PathBuf},
+};
 
 type ARef<T> = ArcRefC<'static, DatasetInner, T>;
 
@@ -248,9 +251,9 @@ impl InstanceRef {
 }
 
 impl LogRef {
-    // pub fn logfile(&self) -> Option<PathBuf> {
-    //     Some(self.owner.dataset_dir.join(self.ref_.logfile.as_ref()?))
-    // }
+    pub fn logfile(&self) -> Option<PathBuf> {
+        Some(self.owner.dataset_dir.join(self.ref_.logfile.as_ref()?))
+    }
 }
 
 impl MapRef {
@@ -260,6 +263,10 @@ impl MapRef {
             .iter()
             .map(|token| self.owner.clone().map(|owner| &owner.log_map[token]))
             .map(|ref_| LogRef::new(self.owner.clone(), ref_))
+    }
+
+    pub fn path(&self) -> PathBuf {
+        self.owner.dataset_dir.join(&self.ref_.filename)
     }
 }
 
@@ -424,5 +431,9 @@ impl SampleDataRef {
             .clone()
             .filter_map(|owner| Some(&owner.sample_data_map[&self.ref_.prev?]))?;
         Some(SampleDataRef::new(self.owner.clone(), ref_))
+    }
+
+    pub fn path(&self) -> PathBuf {
+        self.owner.dataset_dir.join(&self.ref_.filename)
     }
 }
