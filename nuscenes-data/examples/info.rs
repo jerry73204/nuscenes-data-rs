@@ -1,18 +1,24 @@
 use clap::Parser;
-use nuscenes_data::{error::Result, Dataset};
+use nuscenes_data::{error::Result, DatasetLoader};
 use std::path::PathBuf;
 
 #[derive(Parser)]
 struct Opts {
     pub version: String,
     pub data_dir: PathBuf,
+    #[clap(long)]
+    pub no_check: bool,
 }
 
 fn main() -> Result<()> {
     let opts = Opts::parse();
 
     // Change the path to your dataset directory
-    let dataset = Dataset::load(&opts.version, &opts.data_dir)?;
+    let dataset = DatasetLoader {
+        check: !opts.no_check,
+        ..Default::default()
+    }
+    .load(&opts.version, &opts.data_dir)?;
 
     // Iterate over scenes chronologically
     for scene in dataset.scene_iter() {
@@ -46,25 +52,6 @@ fn main() -> Result<()> {
                     "found data {} in sample {}",
                     sample_data.token, sample.token
                 );
-
-                // Load data
-                // match data.load()? {
-                //     LoadedSampleData::PointCloud(matrix) => {
-                //         println!(
-                //             "get point cloud from data {} with {} points",
-                //             data.token,
-                //             matrix.nrows()
-                //         );
-                //     }
-                //     LoadedSampleData::Image(image) => {
-                //         println!(
-                //             "get image from data {} with shape {}x{}",
-                //             data.token,
-                //             image.width(),
-                //             image.height()
-                //         );
-                //     }
-                // }
             }
         }
     }
