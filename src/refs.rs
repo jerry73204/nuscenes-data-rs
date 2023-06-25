@@ -61,7 +61,7 @@ impl DatasetRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| owner.attribute.get(&token))?;
+            .filter_map(|owner| owner.attribute_map.get(&token))?;
         Some(AttributeRef::new(self.owner.clone(), ref_))
     }
 
@@ -69,7 +69,7 @@ impl DatasetRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| owner.calibrated_sensor.get(&token))?;
+            .filter_map(|owner| owner.calibrated_sensor_map.get(&token))?;
         Some(CalibratedSensorRef::new(self.owner.clone(), ref_))
     }
 
@@ -77,7 +77,7 @@ impl DatasetRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| owner.category.get(&token))?;
+            .filter_map(|owner| owner.category_map.get(&token))?;
         Some(CategoryRef::new(self.owner.clone(), ref_))
     }
 
@@ -85,7 +85,7 @@ impl DatasetRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| owner.ego_pose.get(&token))?;
+            .filter_map(|owner| owner.ego_pose_map.get(&token))?;
         Some(EgoPoseRef::new(self.owner.clone(), ref_))
     }
 
@@ -93,7 +93,7 @@ impl DatasetRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| owner.instance.get(&token))?;
+            .filter_map(|owner| owner.instance_map.get(&token))?;
         Some(InstanceRef::new(self.owner.clone(), ref_))
     }
 
@@ -101,7 +101,7 @@ impl DatasetRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| owner.log.get(&token))?;
+            .filter_map(|owner| owner.log_map.get(&token))?;
         Some(LogRef::new(self.owner.clone(), ref_))
     }
 
@@ -109,7 +109,7 @@ impl DatasetRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| owner.map.get(&token))?;
+            .filter_map(|owner| owner.map_map.get(&token))?;
         Some(MapRef::new(self.owner.clone(), ref_))
     }
 
@@ -117,7 +117,7 @@ impl DatasetRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| owner.scene.get(&token))?;
+            .filter_map(|owner| owner.scene_map.get(&token))?;
         Some(SceneRef::new(self.owner.clone(), ref_))
     }
 
@@ -125,7 +125,7 @@ impl DatasetRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| owner.sample.get(&token))?;
+            .filter_map(|owner| owner.sample_map.get(&token))?;
         Some(SampleRef::new(self.owner.clone(), ref_))
     }
 
@@ -133,7 +133,7 @@ impl DatasetRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| owner.sample_annotation.get(&token))?;
+            .filter_map(|owner| owner.sample_annotation_map.get(&token))?;
         Some(SampleAnnotationRef::new(self.owner.clone(), ref_))
     }
 
@@ -141,7 +141,7 @@ impl DatasetRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| owner.sample_data.get(&token))?;
+            .filter_map(|owner| owner.sample_data_map.get(&token))?;
         Some(SampleDataRef::new(self.owner.clone(), ref_))
     }
 
@@ -149,7 +149,7 @@ impl DatasetRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| owner.sensor.get(&token))?;
+            .filter_map(|owner| owner.sensor_map.get(&token))?;
         Some(SensorRef::new(self.owner.clone(), ref_))
     }
 
@@ -157,7 +157,7 @@ impl DatasetRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| owner.visibility.get(&token))?;
+            .filter_map(|owner| owner.visibility_map.get(&token))?;
         Some(VisibilityRef::new(self.owner.clone(), ref_))
     }
 }
@@ -167,7 +167,7 @@ impl CalibratedSensorRef {
         let ref_ = self
             .owner
             .clone()
-            .map(|owner| &owner.sensor[&self.ref_.sensor_token]);
+            .map(|owner| &owner.sensor_map[&self.ref_.sensor_token]);
         SensorRef::new(self.owner.clone(), ref_)
     }
 }
@@ -177,7 +177,7 @@ impl InstanceRef {
         let ref_ = self
             .owner
             .clone()
-            .map(|owner| &owner.category[&self.ref_.category_token]);
+            .map(|owner| &owner.category_map[&self.ref_.category_token]);
         CategoryRef::new(self.owner.clone(), ref_)
     }
 
@@ -190,10 +190,16 @@ impl InstanceRef {
             .map(|token| {
                 self.owner
                     .clone()
-                    .map(|owner| &owner.sample_annotation[token])
+                    .map(|owner| &owner.sample_annotation_map[token])
             })
             .map(|ref_| SampleAnnotationRef::new(self.owner.clone(), ref_))
     }
+}
+
+impl LogRef {
+    // pub fn logfile(&self) -> Option<PathBuf> {
+    //     Some(self.owner.dataset_dir.join(self.ref_.logfile.as_ref()?))
+    // }
 }
 
 impl MapRef {
@@ -201,7 +207,7 @@ impl MapRef {
         self.ref_
             .log_tokens
             .iter()
-            .map(|token| self.owner.clone().map(|owner| &owner.log[token]))
+            .map(|token| self.owner.clone().map(|owner| &owner.log_map[token]))
             .map(|ref_| LogRef::new(self.owner.clone(), ref_))
     }
 }
@@ -211,7 +217,7 @@ impl SceneRef {
         let ref_ = self
             .owner
             .clone()
-            .map(|owner| &owner.log[&self.ref_.log_token]);
+            .map(|owner| &owner.log_map[&self.ref_.log_token]);
         LogRef::new(self.owner.clone(), ref_)
     }
 
@@ -219,7 +225,7 @@ impl SceneRef {
         self.ref_
             .sample_tokens
             .iter()
-            .map(|token| self.owner.clone().map(|owner| &owner.sample[token]))
+            .map(|token| self.owner.clone().map(|owner| &owner.sample_map[token]))
             .map(|ref_| SampleRef::new(self.owner.clone(), ref_))
     }
 }
@@ -229,7 +235,7 @@ impl SampleRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| Some(&owner.sample[&self.ref_.next?]))?;
+            .filter_map(|owner| Some(&owner.sample_map[&self.ref_.next?]))?;
         Some(SampleRef::new(self.owner.clone(), ref_))
     }
 
@@ -237,7 +243,7 @@ impl SampleRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| Some(&owner.sample[&self.ref_.prev?]))?;
+            .filter_map(|owner| Some(&owner.sample_map[&self.ref_.prev?]))?;
         Some(SampleRef::new(self.owner.clone(), ref_))
     }
 
@@ -245,7 +251,7 @@ impl SampleRef {
         let ref_ = self
             .owner
             .clone()
-            .map(|owner| &owner.scene[&self.ref_.scene_token]);
+            .map(|owner| &owner.scene_map[&self.ref_.scene_token]);
         SceneRef::new(self.owner.clone(), ref_)
     }
 
@@ -258,7 +264,7 @@ impl SampleRef {
             .map(|token| {
                 self.owner
                     .clone()
-                    .map(|owner| &owner.sample_annotation[token])
+                    .map(|owner| &owner.sample_annotation_map[token])
             })
             .map(|ref_| SampleAnnotationRef::new(self.owner.clone(), ref_))
     }
@@ -269,7 +275,11 @@ impl SampleRef {
         self.ref_
             .sample_data_tokens
             .iter()
-            .map(|token| self.owner.clone().map(|owner| &owner.sample_data[token]))
+            .map(|token| {
+                self.owner
+                    .clone()
+                    .map(|owner| &owner.sample_data_map[token])
+            })
             .map(|ref_| SampleDataRef::new(self.owner.clone(), ref_))
     }
 }
@@ -279,7 +289,7 @@ impl SampleAnnotationRef {
         let ref_ = self
             .owner
             .clone()
-            .map(|owner| &owner.sample[&self.ref_.sample_token]);
+            .map(|owner| &owner.sample_map[&self.ref_.sample_token]);
         SampleRef::new(self.owner.clone(), ref_)
     }
 
@@ -287,7 +297,7 @@ impl SampleAnnotationRef {
         let ref_ = self
             .owner
             .clone()
-            .map(|owner| &owner.instance[&self.ref_.instance_token]);
+            .map(|owner| &owner.instance_map[&self.ref_.instance_token]);
         InstanceRef::new(self.owner.clone(), ref_)
     }
 
@@ -295,7 +305,7 @@ impl SampleAnnotationRef {
         self.ref_
             .attribute_tokens
             .iter()
-            .map(|token| self.owner.clone().map(|owner| &owner.attribute[token]))
+            .map(|token| self.owner.clone().map(|owner| &owner.attribute_map[token]))
             .map(|ref_| AttributeRef::new(self.owner.clone(), ref_))
     }
 
@@ -303,7 +313,7 @@ impl SampleAnnotationRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| Some(&owner.visibility[&self.ref_.visibility_token?]))?;
+            .filter_map(|owner| Some(&owner.visibility_map[&self.ref_.visibility_token?]))?;
         Some(VisibilityRef::new(self.owner.clone(), ref_))
     }
 
@@ -311,7 +321,7 @@ impl SampleAnnotationRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| Some(&owner.sample_annotation[&self.ref_.next?]))?;
+            .filter_map(|owner| Some(&owner.sample_annotation_map[&self.ref_.next?]))?;
         Some(SampleAnnotationRef::new(self.owner.clone(), ref_))
     }
 
@@ -319,7 +329,7 @@ impl SampleAnnotationRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| Some(&owner.sample_annotation[&self.ref_.prev?]))?;
+            .filter_map(|owner| Some(&owner.sample_annotation_map[&self.ref_.prev?]))?;
         Some(SampleAnnotationRef::new(self.owner.clone(), ref_))
     }
 }
@@ -329,7 +339,7 @@ impl SampleDataRef {
         let ref_ = self
             .owner
             .clone()
-            .map(|owner| &owner.sample[&self.ref_.sample_token]);
+            .map(|owner| &owner.sample_map[&self.ref_.sample_token]);
         SampleRef::new(self.owner.clone(), ref_)
     }
 
@@ -337,7 +347,7 @@ impl SampleDataRef {
         let ref_ = self
             .owner
             .clone()
-            .map(|owner| &owner.ego_pose[&self.ref_.ego_pose_token]);
+            .map(|owner| &owner.ego_pose_map[&self.ref_.ego_pose_token]);
         EgoPoseRef::new(self.owner.clone(), ref_)
     }
 
@@ -345,7 +355,7 @@ impl SampleDataRef {
         let ref_ = self
             .owner
             .clone()
-            .map(|owner| &owner.calibrated_sensor[&self.ref_.calibrated_sensor_token]);
+            .map(|owner| &owner.calibrated_sensor_map[&self.ref_.calibrated_sensor_token]);
         CalibratedSensorRef::new(self.owner.clone(), ref_)
     }
 
@@ -353,7 +363,7 @@ impl SampleDataRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| Some(&owner.sample_data[&self.ref_.next?]))?;
+            .filter_map(|owner| Some(&owner.sample_data_map[&self.ref_.next?]))?;
         Some(SampleDataRef::new(self.owner.clone(), ref_))
     }
 
@@ -361,7 +371,7 @@ impl SampleDataRef {
         let ref_ = self
             .owner
             .clone()
-            .filter_map(|owner| Some(&owner.sample_data[&self.ref_.prev?]))?;
+            .filter_map(|owner| Some(&owner.sample_data_map[&self.ref_.prev?]))?;
         Some(SampleDataRef::new(self.owner.clone(), ref_))
     }
 }
