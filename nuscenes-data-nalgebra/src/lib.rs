@@ -1,10 +1,10 @@
 use nalgebra as na;
-
-pub use nalgebra;
 use nuscenes_data::serializable::{CalibratedSensor, EgoPose, SampleAnnotation};
 
+pub use nalgebra;
+
 pub mod prelude {
-    pub use super::CalibratedSensorNalgebraExt;
+    pub use super::{CalibratedSensorNalgebraExt, EgoPoseNalgebraExt, SampleAnnotationNalgebraExt};
 }
 
 pub trait CalibratedSensorNalgebraExt {
@@ -23,7 +23,7 @@ impl CalibratedSensorNalgebraExt for CalibratedSensor {
     }
 }
 
-trait EgoPoseNalgebraExt {
+pub trait EgoPoseNalgebraExt {
     fn na_rotation(&self) -> na::UnitQuaternion<f64>;
     fn na_translation(&self) -> na::Translation3<f64>;
     fn na_transofrm(&self) -> na::Isometry3<f64>;
@@ -44,14 +44,14 @@ impl EgoPoseNalgebraExt for EgoPose {
     }
 }
 
-trait SampleAnnotationNalgebraExt {
+pub trait SampleAnnotationNalgebraExt {
     fn na_size(&self) -> na::Vector3<f64>;
     fn na_rotation(&self) -> na::UnitQuaternion<f64>;
     fn na_translation(&self) -> na::Translation3<f64>;
     fn na_transofrm(&self) -> na::Isometry3<f64>;
 }
 
-impl SampleAnnotationNaExt for SampleAnnotation {
+impl SampleAnnotationNalgebraExt for SampleAnnotation {
     fn na_rotation(&self) -> na::UnitQuaternion<f64> {
         let quat: na::Quaternion<f64> = self.rotation.into();
         na::Unit::new_normalize(quat)
