@@ -6,11 +6,12 @@ use crate::{
         Attribute, CalibratedSensor, Category, EgoPose, Instance, Log, Map, Sample,
         SampleAnnotation, SampleData, Scene, Sensor, Token, Visibility, VisibilityToken,
     },
+    utils::WithToken,
 };
 use chrono::NaiveDateTime;
 use itertools::Itertools;
 use serde::Deserialize;
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, fs::File, io::BufReader, path::Path};
 
 #[derive(Debug, Clone)]
 pub struct DatasetLoader {
@@ -37,108 +38,84 @@ impl DatasetLoader {
         let dataset_dir = dir.as_ref();
         let meta_dir = dataset_dir.join(version);
 
-        let attribute_list: Vec<Attribute> = {
-            let attribute_path = meta_dir.join("attribute.json");
-            load_json(attribute_path)?
-        };
-        let calibrated_sensor_list: Vec<CalibratedSensor> = {
-            let calibrated_sensor_path = meta_dir.join("calibrated_sensor.json");
-            load_json(calibrated_sensor_path)?
-        };
-        let category_list: Vec<Category> = {
-            let category_path = meta_dir.join("category.json");
-            load_json(category_path)?
-        };
-        let ego_pose_list: Vec<EgoPose> = {
-            let ego_pose_path = meta_dir.join("ego_pose.json");
-            load_json(ego_pose_path)?
-        };
-        let instance_list: Vec<Instance> = {
-            let instance_path = meta_dir.join("instance.json");
-            load_json(instance_path)?
-        };
-        let log_list: Vec<Log> = {
-            let log_path = meta_dir.join("log.json");
-            load_json(log_path)?
-        };
-        let map_list: Vec<Map> = {
-            let map_path = meta_dir.join("map.json");
-            load_json(map_path)?
-        };
-        let sample_list: Vec<Sample> = {
-            let sample_path = meta_dir.join("sample.json");
-            load_json(sample_path)?
-        };
-        let sample_annotation_list: Vec<SampleAnnotation> = {
-            let sample_annotation_path = meta_dir.join("sample_annotation.json");
-            load_json(sample_annotation_path)?
-        };
-        let sample_data_list: Vec<SampleData> = {
-            let sample_data_path = meta_dir.join("sample_data.json");
-            load_json(sample_data_path)?
-        };
-        let scene_list: Vec<Scene> = {
-            let scene_path = meta_dir.join("scene.json");
-            load_json(scene_path)?
-        };
-        let sensor_list: Vec<Sensor> = {
-            let sensor_path = meta_dir.join("sensor.json");
-            load_json(sensor_path)?
-        };
-        let visibility_list: Vec<Visibility> = {
-            let visibility_path = meta_dir.join("visibility.json");
-            load_json(visibility_path)?
-        };
+        // Load .json files in parallel
+        let mut attribute_map: Result<HashMap<Token, Attribute>> = Ok(Default::default());
+        let mut calibrated_sensor_map: Result<HashMap<Token, CalibratedSensor>> =
+            Ok(Default::default());
+        let mut category_map: Result<HashMap<Token, Category>> = Ok(Default::default());
+        let mut ego_pose_map: Result<HashMap<Token, EgoPose>> = Ok(Default::default());
+        let mut instance_map: Result<HashMap<Token, Instance>> = Ok(Default::default());
+        let mut log_map: Result<HashMap<Token, Log>> = Ok(Default::default());
+        let mut map_map: Result<HashMap<Token, Map>> = Ok(Default::default());
+        let mut sample_annotation_map: Result<HashMap<Token, SampleAnnotation>> =
+            Ok(Default::default());
+        let mut sample_data_map: Result<HashMap<Token, SampleData>> = Ok(Default::default());
+        let mut sample_map: Result<HashMap<Token, Sample>> = Ok(Default::default());
+        let mut scene_map: Result<HashMap<Token, Scene>> = Ok(Default::default());
+        let mut sensor_map: Result<HashMap<Token, Sensor>> = Ok(Default::default());
+        let mut visibility_map: Result<HashMap<VisibilityToken, Visibility>> =
+            Ok(Default::default());
 
-        // index items by tokens
-        let attribute_map: HashMap<Token, Attribute> = attribute_list
-            .into_iter()
-            .map(|attribute| (attribute.token, attribute))
-            .collect();
-        let calibrated_sensor_map: HashMap<Token, CalibratedSensor> = calibrated_sensor_list
-            .into_iter()
-            .map(|calibrated_sensor| (calibrated_sensor.token, calibrated_sensor))
-            .collect();
-        let category_map: HashMap<Token, Category> = category_list
-            .into_iter()
-            .map(|category| (category.token, category))
-            .collect();
-        let ego_pose_map: HashMap<Token, EgoPose> = ego_pose_list
-            .into_iter()
-            .map(|ego_pos| (ego_pos.token, ego_pos))
-            .collect();
-        let instance_map: HashMap<Token, Instance> = instance_list
-            .into_iter()
-            .map(|instance| (instance.token, instance))
-            .collect();
-        let log_map: HashMap<Token, Log> =
-            log_list.into_iter().map(|log| (log.token, log)).collect();
-        let map_map: HashMap<Token, Map> =
-            map_list.into_iter().map(|map| (map.token, map)).collect();
-        let sample_annotation_map: HashMap<Token, SampleAnnotation> = sample_annotation_list
-            .into_iter()
-            .map(|sample| (sample.token, sample))
-            .collect();
-        let sample_data_map: HashMap<Token, SampleData> = sample_data_list
-            .into_iter()
-            .map(|sample| (sample.token, sample))
-            .collect();
-        let sample_map: HashMap<Token, Sample> = sample_list
-            .into_iter()
-            .map(|sample| (sample.token, sample))
-            .collect();
-        let scene_map: HashMap<Token, Scene> = scene_list
-            .into_iter()
-            .map(|scene| (scene.token, scene))
-            .collect();
-        let sensor_map: HashMap<Token, Sensor> = sensor_list
-            .into_iter()
-            .map(|sensor| (sensor.token, sensor))
-            .collect();
-        let visibility_map: HashMap<VisibilityToken, Visibility> = visibility_list
-            .into_iter()
-            .map(|visibility| (visibility.token, visibility))
-            .collect();
+        rayon::scope(|scope| {
+            scope.spawn(|_| {
+                attribute_map = load_map(meta_dir.join("attribute.json"));
+            });
+            scope.spawn(|_| {
+                calibrated_sensor_map = load_map(meta_dir.join("sensor.json"));
+            });
+            scope.spawn(|_| {
+                category_map = load_map(meta_dir.join("category.json"));
+            });
+            scope.spawn(|_| {
+                ego_pose_map = load_map(meta_dir.join("ego_pose.json"));
+            });
+            scope.spawn(|_| {
+                instance_map = load_map(meta_dir.join("instance.json"));
+            });
+            scope.spawn(|_| {
+                log_map = load_map(meta_dir.join("log.json"));
+            });
+            scope.spawn(|_| {
+                map_map = load_map(meta_dir.join("map.json"));
+            });
+            scope.spawn(|_| {
+                sample_annotation_map = load_map(meta_dir.join("annotation.json"));
+            });
+            scope.spawn(|_| {
+                sample_data_map = load_map(meta_dir.join("sample_data.json"));
+            });
+            scope.spawn(|_| {
+                sample_map = load_map(meta_dir.join("sample.json"));
+            });
+            scope.spawn(|_| {
+                scene_map = load_map(meta_dir.join("scene.json"));
+            });
+            scope.spawn(|_| {
+                sensor_map = load_map(meta_dir.join("sensor.json"));
+            });
+            scope.spawn(|_| {
+                visibility_map = (|| {
+                    let vec: Vec<Visibility> = load_json(meta_dir.join("visibility.json"))?;
+                    let map: HashMap<VisibilityToken, Visibility> =
+                        vec.into_iter().map(|item| (item.token, item)).collect();
+                    Ok(map)
+                })();
+            });
+        });
+
+        let attribute_map = attribute_map?;
+        let calibrated_sensor_map = calibrated_sensor_map?;
+        let category_map = category_map?;
+        let ego_pose_map = ego_pose_map?;
+        let instance_map = instance_map?;
+        let log_map = log_map?;
+        let map_map = map_map?;
+        let sample_annotation_map = sample_annotation_map?;
+        let sample_data_map = sample_data_map?;
+        let sample_map = sample_map?;
+        let scene_map = scene_map?;
+        let sensor_map = sensor_map?;
+        let visibility_map = visibility_map?;
 
         if check {
             // check calibrated sensor integrity
@@ -563,13 +540,21 @@ impl Default for DatasetLoader {
     }
 }
 
+fn load_map<T, P>(path: P) -> Result<HashMap<Token, T>>
+where
+    P: AsRef<Path>,
+    T: for<'a> Deserialize<'a> + WithToken,
+{
+    let vec: Vec<T> = load_json(path)?;
+    let map = vec.into_iter().map(|item| (item.token(), item)).collect();
+    Ok(map)
+}
+
 fn load_json<T, P>(path: P) -> Result<T>
 where
     P: AsRef<Path>,
     T: for<'a> Deserialize<'a>,
 {
-    use std::{fs::File, io::BufReader};
-
     let reader = BufReader::new(File::open(path.as_ref())?);
     let value = serde_json::from_reader(reader).map_err(|err| {
         let msg = format!("failed to load file {}: {:?}", path.as_ref().display(), err);
