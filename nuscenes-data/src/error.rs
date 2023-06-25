@@ -4,8 +4,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("internal error, please report bug")]
-    InternalBug,
     #[error("corrupted file: {0:?}")]
     CorruptedFile(PathBuf),
     #[error("corrupted file: {0}")]

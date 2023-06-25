@@ -68,10 +68,11 @@ impl InstanceInternal {
         while let Some(annotation_token) = annotation_token_opt {
             let annotation = &sample_annotation_map
                 .get(&annotation_token)
-                .ok_or(Error::InternalBug)?;
-            if annotation_token != annotation.token {
-                return Err(Error::InternalBug);
-            }
+                .expect("internal error: invalid annotation_token");
+            assert_eq!(
+                annotation_token, annotation.token,
+                "internal error: annotation.token mismatch"
+            );
             annotation_tokens.push(annotation_token);
             annotation_token_opt = annotation.next;
         }
@@ -130,9 +131,10 @@ impl SceneInternal {
 
         while let Some(sample_token) = sample_token_opt {
             let sample = &sample_map[&sample_token];
-            if sample.token != sample_token {
-                return Err(Error::InternalBug);
-            }
+            assert_eq!(
+                sample.token, sample_token,
+                "internal error: sample.token mismatch"
+            );
             sample_tokens.push(sample_token);
             sample_token_opt = sample.next;
         }
