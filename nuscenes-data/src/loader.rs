@@ -824,8 +824,8 @@ fn index_records(
 
     // construct result
     let inner = DatasetInner {
-        version: version.to_string(),
-        dataset_dir: dataset_dir.to_owned(),
+        version,
+        dataset_dir,
         attribute_map,
         calibrated_sensor_map,
         category_map,

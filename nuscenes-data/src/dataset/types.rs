@@ -1,4 +1,4 @@
-use super::dataset::DatasetInner;
+use super::dataset_inner::DatasetInner;
 use crate::{
     error::Result,
     parsed::{InstanceInternal, SampleInternal, SceneInternal},
